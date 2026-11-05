@@ -1,19 +1,27 @@
 // Runs repository searches against the GitHub API using the signed-in user's token.
 //
-// Strategy (usually 1 GitHub call, at most 4):
-//  1. Strict: every keyword must match, star filter applied, GitHub sorts by stars.
-//  2. If that finds fewer than STRICT_MIN_RESULTS and there are 2+ keywords, collect GitHub's most
-//     relevant candidates for the key terms ("core": all key terms; "any": any key term), filter
-//     them with selectRelaxed(), merge with the strict matches and rank everything by stars.
+// Strategy (1 to 4 GitHub calls, each for up to 100 candidates sorted by stars):
+//  1. strict: every keyword must match.
+//  2. core:   only the key terms, when the request has descriptive words ("self-hosted", "python",
+//             "library") and the strict search did not already fill the pool. Projects that are what
+//             was asked for often never use the descriptive word ("mail server" vs "self-hosted").
+//  3. alt:    the key terms with a related concept swapped in ("email" -> "mail server").
+//  4. any:    GitHub's best matches for any key term, only when fewer than STRICT_MIN_RESULTS fit.
+// Candidates are then filtered and ordered by rankResults(): how well the name, topics and opening
+// of the description match the request, then stars. The ranked list is cached and paged locally.
 
-import { buildQuery, selectRelaxed, simplifyRepo, isLikelySpam, MAX_REACHABLE_RESULTS } from "../public/lib/query.js";
+import { buildQuery, rankResults, simplifyRepo, isLikelySpam } from "../public/lib/query.js";
 import { sha256Hex } from "./crypto.js";
 import { githubApiBase, USER_AGENT } from "./config.js";
 
 export const STRICT_MIN_RESULTS = 10;
+export const POOL_CANDIDATES = 100; // GitHub's maximum per_page
+export const ALT_CANDIDATES = 50;
 export const BROAD_CANDIDATES = 50;
+export const MAX_RESULTS = 100; // ranked results kept per search (and paged through)
+const CACHE_VERSION = 2; // bump when the cached shape or ranking changes
 const CACHE_TTL_SECONDS = 600;
-const MEMORY_CACHE_MAX = 200;
+const MEMORY_CACHE_MAX = 100;
 
 export class GitHubError extends Error {
   constructor(status, message, extra = {}) {
@@ -27,107 +35,106 @@ export class GitHubError extends Error {
 export async function searchRepositories(opts, { token, env, ctx, origin }) {
   const key = await sha256Hex(
     JSON.stringify([
+      CACHE_VERSION,
       opts.parsed.keywords,
+      opts.parsed.core,
       opts.parsed.qualifiers,
       opts.minStars,
       opts.language,
       opts.includeArchived,
-      opts.page,
-      opts.perPage,
     ]),
   );
 
-  const cached = await cacheGet(key, origin);
-  if (cached) return { ...cached, cached: true, rateLimit: null };
+  let full = await cacheGet(key, origin);
+  let cached = Boolean(full);
+  let rateLimit = null;
+  if (!full) {
+    // Identical searches arriving at the same time share one set of GitHub calls.
+    let pending = inflight.get(key);
+    const leader = !pending;
+    if (leader) {
+      pending = runSearch(opts, token, env).finally(() => inflight.delete(key));
+      inflight.set(key, pending);
+    }
+    const { rateLimit: rl, ...result } = await pending;
+    full = result;
+    cached = !leader;
+    if (leader) {
+      rateLimit = rl;
+      const put = cachePut(key, origin, result);
+      if (ctx?.waitUntil) ctx.waitUntil(put);
+      else await put;
+    }
+  }
 
-  // Identical searches arriving at the same time share one set of GitHub calls.
-  let pending = inflight.get(key);
-  const leader = !pending;
-  if (leader) {
-    pending = runSearch(opts, token, env).finally(() => inflight.delete(key));
-    inflight.set(key, pending);
-  }
-  const { rateLimit, ...result } = await pending;
-  if (leader) {
-    const put = cachePut(key, origin, result);
-    if (ctx?.waitUntil) ctx.waitUntil(put);
-    else await put;
-  }
-  return { ...result, cached: !leader, rateLimit: leader ? rateLimit : null };
+  const { page, perPage } = opts;
+  const start = (page - 1) * perPage;
+  return {
+    mode: full.mode,
+    matchLevel: full.matchLevel,
+    total: full.items.length,
+    page,
+    perPage,
+    hasMore: start + perPage < full.items.length,
+    incomplete: full.incomplete,
+    items: full.items.slice(start, start + perPage),
+    cached,
+    rateLimit,
+  };
 }
 
 const inflight = new Map();
 
-async function runSearch({ parsed, minStars, language, includeArchived, page, perPage }, token, env) {
+async function runSearch({ parsed, minStars, language, includeArchived }, token, env) {
   const filters = { minStars, language, includeArchived };
+  // Build every query up front so an over-long query fails before any GitHub call.
   const strictQuery = buildQuery(parsed, filters, "strict");
-  const strict = await githubSearch(strictQuery, { sortByStars: true, page, perPage }, token, env);
+  const coreQuery = parsed.soft.length ? buildQuery(parsed, filters, "core") : null;
+  const altQuery = parsed.altTerms ? buildQuery(parsed, filters, "alt") : null;
+  const anyQuery = parsed.core.length >= 2 ? buildQuery(parsed, filters, "any") : null;
+
+  const strict = await githubSearch(strictQuery, { sortByStars: true, perPage: POOL_CANDIDATES }, token, env);
   let rateLimit = strict.rateLimit;
+  let incomplete = strict.incomplete;
+  let mode = "strict";
+  const trusted = new Set(strict.items.map((r) => r.id));
+  const candidates = [...strict.items];
 
-  const strictResult = () => ({
-    mode: "strict",
-    matchLevel: "all_keywords",
-    total: strict.total,
-    page,
-    perPage,
-    hasMore: page * perPage < Math.min(strict.total, MAX_REACHABLE_RESULTS),
-    incomplete: strict.incomplete,
-    items: strict.items.map(simplifyRepo),
-    rateLimit,
-  });
-
-  const keywordCount = parsed.keywords.length;
-  if (keywordCount < 2 || strict.total >= STRICT_MIN_RESULTS) return strictResult();
-
-  // Build both queries up front so an over-long query fails before any extra GitHub calls.
-  const hasSoft = parsed.soft.length > 0;
-  const coreQuery = hasSoft ? buildQuery(parsed, filters, "core") : null;
-  const anyQuery = !hasSoft || parsed.core.length >= 3 ? buildQuery(parsed, filters, "any") : null;
+  const fetchMore = async (q, sortByStars, perPage) => {
+    const res = await githubSearch(q, { sortByStars, perPage }, token, env);
+    candidates.push(...res.items);
+    rateLimit = res.rateLimit;
+    incomplete ||= res.incomplete;
+    mode = "broad";
+  };
 
   try {
-    // All strict matches (fewer than STRICT_MIN_RESULTS) are needed for merging.
-    let strictAll = strict.items;
-    let incomplete = strict.incomplete;
-    if (page !== 1 || strict.items.length < strict.total) {
-      const again = await githubSearch(strictQuery, { sortByStars: true, page: 1, perPage: STRICT_MIN_RESULTS }, token, env);
-      strictAll = again.items;
-      rateLimit = again.rateLimit;
+    if (coreQuery && coreQuery !== strictQuery && strict.total < POOL_CANDIDATES) {
+      await fetchMore(coreQuery, true, POOL_CANDIDATES);
     }
-
-    // "core" (all key terms) is fetched by stars: those are the projects we would rank first anyway.
-    // "any" (any key term) uses GitHub's best-match order; sorted by stars it would only return
-    // huge repos that happen to contain one of the words.
-    const candidates = [];
-    for (const [q, sortByStars] of [[coreQuery, true], [anyQuery, false]]) {
-      if (!q) continue;
-      const res = await githubSearch(q, { sortByStars, page: 1, perPage: BROAD_CANDIDATES }, token, env);
-      candidates.push(...res.items);
-      rateLimit = res.rateLimit;
-      incomplete ||= res.incomplete;
+    if (altQuery && altQuery !== strictQuery && altQuery !== coreQuery) await fetchMore(altQuery, true, ALT_CANDIDATES);
+    // "any" uses GitHub's best-match order; sorted by stars it would only return huge repos that
+    // happen to contain one of the words.
+    if (anyQuery && rankResults(candidates, parsed, { trusted }).items.length < STRICT_MIN_RESULTS) {
+      await fetchMore(anyQuery, false, BROAD_CANDIDATES);
     }
-
-    const { level, items: ranked } = selectRelaxed(strictAll, candidates, parsed);
-    const start = (page - 1) * perPage;
-
-    return {
-      mode: "broad",
-      matchLevel: level,
-      total: ranked.length,
-      page,
-      perPage,
-      hasMore: start + perPage < ranked.length,
-      incomplete,
-      items: ranked.slice(start, start + perPage).map(simplifyRepo),
-      rateLimit,
-    };
   } catch (err) {
-    // If widening fails (e.g. rate limit) but strict found something, return that instead of an error.
-    if (err instanceof GitHubError && err.status !== 401 && strict.total > 0) return strictResult();
-    throw err;
+    // If widening fails (e.g. rate limit) but something was found, return that instead of an error.
+    if (!(err instanceof GitHubError) || err.status === 401 || !candidates.length) throw err;
+    incomplete = true;
   }
+
+  const { level, items } = rankResults(candidates, parsed, { trusted });
+  return {
+    mode,
+    matchLevel: level,
+    incomplete,
+    items: items.slice(0, MAX_RESULTS).map(simplifyRepo),
+    rateLimit,
+  };
 }
 
-async function githubSearch(q, { sortByStars, page, perPage }, token, env) {
+async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
   const url = new URL(`${githubApiBase(env)}/search/repositories`);
   url.searchParams.set("q", q);
   if (sortByStars) {

@@ -1,5 +1,5 @@
-// Pure search logic: turn a plain-English request into GitHub queries,
-// decide which results match, and rank them by stars. No network or Worker APIs here.
+// Pure search logic: understand a plain-English request, turn it into GitHub queries, decide which
+// results match and rank them by how well they match, then by stars. No network or Worker APIs here.
 
 export const DEFAULT_MIN_STARS = 100;
 export const MIN_STARS_FLOOR = 10;
@@ -22,10 +22,13 @@ const STOPWORDS = new Set(
    shall may might must do does did done have has had want wants wanted need needs needed looking
    look find finding search searching show give get some any something anything like similar such
    also very really just only more most best good great top popular project projects repo repos
-   repository repositories github open source opensource please help let lets using use used uses
-   based built written made make makes so than too not no yes all each every other another while
-   both either etc free support supports supported supporting feature features functionality
-   allow allows allowing able ability capability capabilities way ways thing things stuff kind`.split(/\s+/),
+   repository repositories github open source opensource open-source please help let lets using use
+   used uses based built written made make makes so than too not no yes all each every other another
+   while both either etc free support supports supported supporting feature features functionality
+   allow allows allowing able ability capability capabilities way ways thing things stuff kind
+   self own myself ourselves yourself recommend recommendation recommendations suggest suggestion
+   suggestions tell know provide provides offer offers try trying cheap cheaper affordable paid
+   cost costs everything someone anyone m s d t ll re ve im`.split(/\s+/),
 );
 
 // Descriptive words: they describe the kind of project, not the subject. They are optional when
@@ -36,10 +39,102 @@ const SOFT_WORDS = new Set(
    library libraries lib libs framework frameworks tool tools toolkit utility utilities util utils
    app apps application applications software program programs platform system solution service
    package module plugin plugins extension extensions alternative alternatives replacement clone
-   self host hosted hosting self-hosted selfhosted self-host cross-platform
+   hosted self-hosted selfhosted self-host cross-platform
    python javascript js typescript ts golang rust java kotlin swift ruby php c++ cpp c# csharp dart
    scala elixir haskell lua node node.js nodejs`.split(/\s+/),
 );
+
+// ---------- Understanding the request ----------
+
+export const SELF_HOSTED = "self-hosted";
+const OWN_INFRA = String.raw`(?:servers?|vps|hardware|machines?|infrastructure|infra|domain|cloud|homelab|box)`;
+
+// Phrases rewritten to one canonical term before the words are split, so "self hosted",
+// "host it myself" and "on my own server" all become the single requirement "self-hosted".
+const REWRITES = [
+  [/\be[\s-]mails?\b/g, "email"],
+  [/\bself[\s-]*host(?:ed|ing|able|s)?\b/g, SELF_HOSTED],
+  [/\bon[\s-]?prem(?:ise|ises)?\b/g, SELF_HOSTED],
+  [
+    new RegExp(
+      String.raw`\b(?:host|run|deploy|install)(?:ed|ing|s)?\s+(?:it\s+|them\s+|this\s+)?(?:myself|ourselves|yourself|on\s+(?:my|our|your)\s+own(?:\s+${OWN_INFRA})?)\b`,
+      "g",
+    ),
+    SELF_HOSTED,
+  ],
+  [new RegExp(String.raw`\b(?:on|in)\s+(?:my|our|your)\s+own\s+${OWN_INFRA}\b`, "g"), SELF_HOSTED],
+  [/\bvideo\s+(?:calls?|calling|meetings?)\b/g, "video conferencing"],
+];
+
+// Who it is for and what it costs describe the user, not the project: "email for my business"
+// is about email. These phrases are removed and reported back as context.
+const AUDIENCE = String.raw`(?:business(?:es)?|compan(?:y|ies)|startups?|start-ups?|teams?|organi[sz]ations?|orgs?|agenc(?:y|ies)|firms?|offices?|famil(?:y|ies)|household|clients?|customers?|employees?|staff|colleagues|friends|users?|use|usage|needs?|purposes?|work|workplace|side\s+projects?|projects?|websites?|site|blog|enterprises?|ngos?|non-?profits?|schools?|students?|myself|me|us)`;
+const AUDIENCE_MOD = String.raw`(?:my|our|your|his|her|their|a|an|the|this|that|small|smaller|little|local|growing|own|new|whole|entire|tiny|medium|mid-sized|large|big|personal|internal|commercial|private|family|online|everyday|daily|non-commercial)`;
+const CONTEXT_PATTERNS = [
+  new RegExp(String.raw`\b(?:for|in|at|within|across|by)\s+(?:${AUDIENCE_MOD}\s+){0,3}${AUDIENCE}\b`, "g"),
+  /\b(?:my|our|your)\s+(?:own\s+)?(?:small\s+)?(?:business|company|startup|team|organi[sz]ation|agency|firm)\b/g,
+  /\bsmall\s+business(?:es)?\b/g,
+  /\b(?:for|at)\s+(?:free|no\s+cost|zero\s+cost)\b|\bfree\s+of\s+(?:charge|cost)\b|\b(?:with\s+)?no\s+(?:cost|charges?|fees?|subscriptions?)\b|\bwithout\s+(?:paying|payment|any\s+cost|cost|fees?|a\s+subscription|subscriptions?)\b|\bcosts?\s+nothing\b|\bfree\s+(?:to\s+use|forever|tier|plan)\b|\b(?:totally|completely|100%)\s+free\b/g,
+];
+
+// "like slack", "alternative to google analytics": the named product is a reference point.
+const REF_RE = /\b(?:like|similar\s+to|alternatives?\s+(?:to|for)|replacements?\s+(?:to|for|of)|instead\s+of|clones?\s+of|substitutes?\s+(?:to|for)|competitors?\s+(?:to|of))\s+([\p{L}\p{N}][\p{L}\p{N}+#.-]*)/gu;
+const NEXT_WORD_RE = /^\s+([\p{L}\p{N}][\p{L}\p{N}+#.-]*)/u;
+// Vendors whose products are usually named with two words ("google analytics", "microsoft teams").
+const BRAND_PREFIXES = new Set("google microsoft ms adobe apple amazon aws zoho atlassian visual power new sublime".split(" "));
+
+// Related words that mean the same thing in a project description. `hosted` is what a
+// self-hosted version of the thing is usually called, used to fetch extra candidates; `hints` are
+// words that show a project is the self-hosted kind (a "mail server" is self-hosted email even if
+// its description never says "self-hosted").
+const MAIL_HINTS = ["mailserver", "smtp", "imap", "postfix", "dovecot", "webmail", "mta"];
+const HOSTED_HINTS = ["server", "docker", "homelab"];
+const CONCEPTS = {
+  email: { alts: ["mail", "mailserver", "smtp", "imap", "webmail"], hosted: "mail server", hints: MAIL_HINTS },
+  mail: { alts: ["email", "mailserver", "smtp", "imap"], hosted: "mail server", hints: MAIL_HINTS },
+  chat: { alts: ["messaging", "messenger", "team chat"], hosted: "chat server", hints: ["matrix", "xmpp"] },
+  messaging: { alts: ["chat", "messenger"] },
+  vpn: { alts: ["wireguard", "openvpn"], hosted: "vpn server", hints: ["wireguard"] },
+  notes: { alts: ["note taking", "notetaking", "notebook"] },
+  note: { alts: ["note taking", "notetaking", "notebook"] },
+  todo: { alts: ["to do", "task manager", "tasks"] },
+  kubernetes: { alts: ["k8s"] },
+  k8s: { alts: ["kubernetes"] },
+  database: { alts: ["db"] },
+  db: { alts: ["database"] },
+  ai: { alts: ["llm", "gpt", "machine learning", "artificial intelligence"] },
+  llm: { alts: ["ai", "gpt", "language model"] },
+  tts: { alts: ["text to speech", "speech synthesis"] },
+  stt: { alts: ["speech to text", "speech recognition", "transcription", "asr"] },
+  transcription: { alts: ["speech to text", "speech recognition", "transcribe"] },
+  ocr: { alts: ["text recognition"] },
+  scraper: { alts: ["scraping", "scrape", "crawler", "crawling", "spider"] },
+  scraping: { alts: ["scraper", "scrape", "crawler", "crawling", "spider"] },
+  crawler: { alts: ["scraper", "scraping", "crawling", "spider"] },
+  photo: { alts: ["image", "picture", "gallery"] },
+  photos: { alts: ["image", "picture", "gallery"] },
+  image: { alts: ["photo", "picture"] },
+  images: { alts: ["photo", "picture"] },
+  crm: { alts: ["customer relationship"] },
+  invoice: { alts: ["invoicing", "billing"] },
+  invoicing: { alts: ["invoice", "billing"] },
+  monitoring: { alts: ["observability", "uptime"] },
+  calendar: { alts: ["caldav", "scheduling"] },
+  conferencing: { alts: ["conference", "meeting", "meetings", "webrtc", "video call"] },
+  tables: { alts: ["table", "tabular"] },
+  table: { alts: ["tables", "tabular"] },
+  excel: { alts: ["xlsx", "xls", "spreadsheet"] },
+  spreadsheet: { alts: ["excel", "xlsx", "sheets"] },
+  convert: { alts: ["converter", "conversion", "extract", "export"] },
+  alternative: { alts: ["alternatives", "replacement", "replace", "clone", "instead of"] },
+  [SELF_HOSTED]: { alts: ["self host", "selfhost", "on premise", "on prem", "homelab"] },
+  selfhosted: { alts: ["self host", "selfhost", "on premise", "homelab"] },
+};
+
+/** The term plus the words that mean the same thing in a project description. */
+export function alternativesFor(term) {
+  return [term, ...(CONCEPTS[term]?.alts ?? [])];
+}
 
 // GitHub qualifiers users may type directly, e.g. "license:mit" or "topic:cli".
 const ALLOWED_QUALIFIERS = new Set([
@@ -55,11 +150,49 @@ const TOKEN_RE = /(-?)([a-z][a-z-]*):("[^"]*"|\S+)|"([^"]*)"|(\S+)/gi;
 const WORD_RE = /[\p{L}\p{N}][\p{L}\p{N}+#._-]*/gu;
 const LANGUAGE_RE = /^[\p{L}\p{N} .+#'-]{1,40}$/u;
 
+function cleanWord(w) {
+  return w.toLowerCase().replace(/[._-]+$/, "").slice(0, 50);
+}
+
 function pushWords(token, terms) {
   for (const m of token.toLowerCase().matchAll(WORD_RE)) {
-    const word = m[0].replace(/[._-]+$/, "");
-    if (word) terms.push(word.slice(0, 50));
+    const word = cleanWord(m[0]);
+    if (word) terms.push(word);
   }
+}
+
+/** Plain text (no qualifiers or quotes): canonical phrases, context removal, reference products. */
+function understandText(raw, out) {
+  let text = ` ${raw.toLowerCase()} `;
+  for (const [re, rep] of REWRITES) text = text.replace(re, ` ${rep} `);
+  for (const re of CONTEXT_PATTERNS) {
+    text = text.replace(re, (m) => {
+      out.context.push(m.trim().replace(/\s+/g, " "));
+      return " ";
+    });
+  }
+
+  let last = 0;
+  for (const m of text.matchAll(REF_RE)) {
+    if (m.index < last) continue;
+    const first = cleanWord(m[1]);
+    if (!first || STOPWORDS.has(first) || SOFT_WORDS.has(first)) continue;
+    let end = m.index + m[0].length;
+    let ref = first;
+    const next = NEXT_WORD_RE.exec(text.slice(end));
+    if (next && BRAND_PREFIXES.has(first)) {
+      const second = cleanWord(next[1]);
+      if (second && !STOPWORDS.has(second) && !SOFT_WORDS.has(second)) {
+        ref = `${first} ${second}`;
+        end += next[0].length;
+      }
+    }
+    pushWords(text.slice(last, m.index), out.terms);
+    out.terms.push("alternative", ref);
+    out.refs.add(ref);
+    last = end;
+  }
+  pushWords(text.slice(last), out.terms);
 }
 
 /**
@@ -67,57 +200,99 @@ function pushWords(token, terms) {
  * Returns {
  *   keywords: string[]   all search words, in order
  *   core: string[]       key terms (must match); all keywords if every word is descriptive
- *   soft: string[]       descriptive words (optional)
+ *   soft: string[]       descriptive words (optional, used for ranking)
+ *   refs: string[]       products named as a reference ("like slack")
+ *   context: string[]    phrases about the user, not the project ("for my business", "for free")
+ *   altTerms: string[]|null  key terms rephrased with a related concept, for one extra GitHub query
  *   qualifiers: {key, value, negated}[], ignored: string[]
  * }
  */
 export function parseQuery(input) {
   const text = String(input ?? "").slice(0, MAX_INPUT_LENGTH);
-  const terms = [];
+  const out = { terms: [], context: [], refs: new Set() };
   const qualifiers = [];
   const ignored = [];
+  let plain = [];
+  const flush = () => {
+    if (plain.length) understandText(plain.join(" "), out);
+    plain = [];
+  };
 
   for (const m of text.matchAll(TOKEN_RE)) {
     const [whole, neg, key, value, phrase, word] = m;
     if (key !== undefined) {
       const k = key.toLowerCase();
       if (ALLOWED_QUALIFIERS.has(k) && value.replace(/"/g, "").trim()) {
+        flush();
         qualifiers.push({ key: k, value, negated: neg === "-" });
       } else if (MANAGED_QUALIFIERS.has(k)) {
+        flush();
         ignored.push(whole);
       } else {
-        pushWords(whole, terms); // e.g. "http://..." or "note:" is just text
+        plain.push(whole); // e.g. "http://..." or "note:" is just text
       }
     } else if (phrase !== undefined) {
+      flush();
       const p = phrase.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 50);
-      if (p) terms.push(p);
+      if (p) out.terms.push(p);
     } else if (word.length > 1 && word.startsWith("-")) {
       ignored.push(word); // excluding plain words is not supported
     } else {
-      pushWords(word, terms);
+      plain.push(word);
     }
   }
+  flush();
 
-  const unique = [...new Set(terms)];
+  // "notion alternative", "trello clone": the word before is the reference product.
+  out.terms.forEach((t, i) => {
+    if (i && /^(?:alternatives?|replacements?|clones?)$/.test(t)) {
+      const prev = out.terms[i - 1];
+      if (!STOPWORDS.has(prev) && !SOFT_WORDS.has(prev)) out.refs.add(prev);
+    }
+  });
+
+  const unique = [...new Set(out.terms)];
   const meaningful = unique.filter((t) => t.includes(" ") || !STOPWORDS.has(t));
   const candidates = meaningful.length ? meaningful : unique;
 
+  // A named product is the subject only when nothing else is ("notion alternative"); next to other
+  // key terms ("chat app like slack") it is a hint for ranking.
+  const isRef = (t) => out.refs.has(t);
+  const hasOtherCore = candidates.some((t) => !SOFT_WORDS.has(t) && !isRef(t));
+  const isSoft = (t) => SOFT_WORDS.has(t) || (hasOtherCore && isRef(t));
+
   // Over the limit: keep key terms before descriptive words, preserving the original order.
-  const isSoft = (t) => SOFT_WORDS.has(t);
   const keep = new Set();
   for (const t of candidates) if (!isSoft(t) && keep.size < MAX_KEYWORDS) keep.add(t);
   for (const t of candidates) if (isSoft(t) && keep.size < MAX_KEYWORDS) keep.add(t);
   const keywords = candidates.filter((t) => keep.has(t));
   ignored.push(...candidates.filter((t) => !keep.has(t)));
 
-  const core = keywords.filter((t) => !isSoft(t));
+  const coreOnly = keywords.filter((t) => !isSoft(t));
+  const core = coreOnly.length ? coreOnly : keywords;
+  const soft = coreOnly.length ? keywords.filter(isSoft) : [];
   return {
     keywords,
-    core: core.length ? core : keywords,
-    soft: core.length ? keywords.filter(isSoft) : [],
+    core,
+    soft,
+    refs: keywords.filter(isRef),
+    context: [...new Set(out.context)],
+    altTerms: alternateTerms(core, soft),
     qualifiers,
     ignored,
   };
+}
+
+/** Key terms with the first one that has a known related concept swapped for it. */
+function alternateTerms(core, soft) {
+  const wantsHosting = soft.includes(SELF_HOSTED) || soft.includes("selfhosted") || soft.includes("self-host");
+  const i = core.findIndex((t) => CONCEPTS[t] && t !== SELF_HOSTED);
+  if (i === -1) return null;
+  const c = CONCEPTS[core[i]];
+  const swap = (wantsHosting && c.hosted) || c.alts[0];
+  const terms = [...core];
+  terms.splice(i, 1, ...swap.split(" "));
+  return [...new Set(terms)];
 }
 
 function formatTerm(term) {
@@ -128,12 +303,19 @@ function formatTerm(term) {
  * Builds a GitHub repository search query.
  *   "strict": every keyword must match
  *   "core":   every key term must match (descriptive words left out)
+ *   "alt":    key terms with one swapped for a related concept (parsed.altTerms)
  *   "any":    any key term may match (up to MAX_OR_TERMS)
  */
 export function buildQuery(parsed, { minStars, language, includeArchived }, mode = "strict") {
   const parts = [];
   const terms =
-    mode === "core" ? parsed.core : mode === "any" ? parsed.core.slice(0, MAX_OR_TERMS) : parsed.keywords;
+    mode === "core"
+      ? parsed.core
+      : mode === "alt"
+        ? (parsed.altTerms ?? parsed.core)
+        : mode === "any"
+          ? parsed.core.slice(0, MAX_OR_TERMS)
+          : parsed.keywords;
   if (terms.length) parts.push(terms.map(formatTerm).join(mode === "any" ? " OR " : " "));
   for (const q of parsed.qualifiers) {
     if (language && q.key === "language" && !q.negated) continue; // the language filter wins
@@ -209,14 +391,23 @@ function isWordChar(ch) {
   return !!ch && /[\p{L}\p{N}]/u.test(ch);
 }
 
+// Light stemming so "converter" finds "converting", "hosting" finds "hosted" and "tables" finds "table".
+function stem(term) {
+  if (term.length <= 3 || term.includes(" ")) return term;
+  if (term.endsWith("ing") && term.length > 6) return term.slice(0, -3);
+  if (term.endsWith("ies") && term.length > 5) return term.slice(0, -3);
+  if (term.endsWith("ed") && term.length > 5 && !term.endsWith("eed")) return term.slice(0, -2);
+  if (term.endsWith("er") && term.length > 7) return term.slice(0, -2);
+  if (term.endsWith("s") && !term.endsWith("ss")) return term.slice(0, -1);
+  return term;
+}
+
 // Keywords must start at a word boundary ("todo" matches "todolist" but not "mytodo").
 // Short keywords (3 chars or fewer, e.g. "go", "cli") must match a whole word.
-// A plural "s" is dropped so "tables" also matches "table".
 function containsTerm(haystack, keyword) {
   const normalized = normalizeForMatch(keyword);
   const wholeWord = normalized.length <= 3;
-  const term =
-    !wholeWord && normalized.endsWith("s") && !normalized.endsWith("ss") ? normalized.slice(0, -1) : normalized;
+  const term = wholeWord ? normalized : stem(normalized);
   let i = haystack.indexOf(term);
   while (i !== -1) {
     const before = i === 0 ? "" : haystack[i - 1];
@@ -240,37 +431,147 @@ export function requiredMatches(keywordCount) {
   return keywordCount <= 2 ? keywordCount : Math.ceil(keywordCount * 0.6);
 }
 
-export const RELAXED_MIN_RESULTS = 5;
+const splitCamel = (s) => String(s ?? "").replace(/([a-z\d])([A-Z])/g, "$1 $2");
+
+// Where a project says what it *is*: its name, its topics and the opening of its description.
+// A word buried later in the description ("...extracts business emails") counts for much less.
+const WEIGHT = { name: 1, topics: 0.85, lead: 0.85, owner: 0.35, rest: 0.35, language: 0.6 };
+const TOPIC_STUFFING = 12; // repos tagging every buzzword get less credit per topic
+
+function leadLength(desc) {
+  const re = /[.!?;|](?:\s|$)|\s[-–—|]\s/g;
+  let m;
+  while ((m = re.exec(desc))) if (m.index >= 60) return Math.min(m.index, 160);
+  return Math.min(desc.length, 160);
+}
+
+function fieldsOf(repo) {
+  const [owner = "", name = ""] = String(repo.full_name ?? "").split("/");
+  const desc = String(repo.description ?? "");
+  const cut = leadLength(desc);
+  const topics = Array.isArray(repo.topics) ? repo.topics : [];
+  return {
+    name: normalizeForMatch(splitCamel(name)),
+    topics: normalizeForMatch(topics.join(" ")),
+    lead: normalizeForMatch(desc.slice(0, cut)),
+    rest: normalizeForMatch(desc.slice(cut)),
+    owner: normalizeForMatch(splitCamel(owner)),
+    language: normalizeForMatch(repo.language),
+    topicWeight: topics.length > TOPIC_STUFFING ? 0.55 : WEIGHT.topics,
+  };
+}
+
+function bestHit(fields, alts) {
+  let best = 0;
+  for (const alt of alts) {
+    for (const f of ["name", "topics", "lead", "language", "owner", "rest"]) {
+      const w = f === "topics" ? fields.topicWeight : WEIGHT[f];
+      if (w > best && containsTerm(fields[f], alt)) best = w;
+    }
+  }
+  return best;
+}
+
+const isSelfHostedTerm = (t) => t === SELF_HOSTED || t === "selfhosted" || t === "self-host";
+
+// Explicit requirements ("self-hosted", "like slack") count for more than flavour words ("simple").
+function softWeight(term, parsed) {
+  if (isSelfHostedTerm(term) || (parsed.refs ?? []).includes(term)) return 0.3;
+  return term === "alternative" && wantsAlternative(parsed) ? 0.3 : 0.1;
+}
+
+// A soft word's hit; for "self-hosted", words that merely suggest a deployable service ("mail
+// server", "docker") count at 60% of the project saying "self-hosted" outright.
+function softHit(fields, term, parsed) {
+  const literal = bestHit(fields, alternativesFor(term));
+  if (!isSelfHostedTerm(term)) return literal;
+  const hints = [...HOSTED_HINTS, ...parsed.core.flatMap((t) => CONCEPTS[t]?.hints ?? [])];
+  return Math.max(literal, 0.6 * bestHit(fields, hints));
+}
+
+// Someone asking for a self-hosted service wants something to run, not code to build one with.
+const BUILDING_BLOCK_RE = /\b(?:library|libraries|sdk|bindings?|wrapper|boilerplate|starter|template|templates|tutorial|example|examples|learn|testing|fake|mock)\b/;
+const BUILDING_BLOCK_WORDS = new Set(["library", "libraries", "lib", "libs", "sdk", "framework", "frameworks", "package", "module", "template", "templates", "boilerplate", "testing", "test", "mock"]);
+
+function wantsAlternative(parsed) {
+  return (parsed.refs ?? []).some((r) => parsed.core.includes(r));
+}
+
+function wantsService(parsed) {
+  return parsed.soft.some(isSelfHostedTerm) && !parsed.keywords.some((k) => BUILDING_BLOCK_WORDS.has(k));
+}
+
+const LIST_WORDS = new Set(["awesome", "list", "lists", "curated", "collection", "resources"]);
+
+function isCuratedList(repo) {
+  const name = String(repo.full_name ?? "").split("/")[1] ?? "";
+  const topics = Array.isArray(repo.topics) ? repo.topics : [];
+  return /^awesome[-_.]|[-_.]awesome$|^awesome$/i.test(name) || topics.includes("awesome") || topics.includes("awesome-list");
+}
 
 /**
- * Chooses results when too few projects match every keyword. Tries progressively looser rules and
- * uses the strictest one that yields at least RELAXED_MIN_RESULTS projects:
- *   key_terms_plus  every key term + at least a third of the descriptive words
- *   key_terms       every key term
- *   most_key_terms  60% of key terms (only when there are 3+ key terms)
- * Exact matches (strictItems) are always included. Output is ranked by stars.
+ * How well one repository fits the request.
+ *   coreHits   key terms (or a related word) found anywhere
+ *   softHits   descriptive words found anywhere
+ *   relevance  0..~1.3: key terms weighted by where they appear, plus a bonus per descriptive word
+ *   score      relevance plus a popularity term (each 10x in stars adds 0.12)
  */
-export function selectRelaxed(strictItems, candidates, parsed) {
-  const { core, soft } = parsed;
-  const scored = dedupeById(candidates).map((repo) => ({
+export function scoreRepo(repo, parsed) {
+  const fields = fieldsOf(repo);
+  const core = parsed.core.map((t) => bestHit(fields, alternativesFor(t)));
+  const soft = parsed.soft.map((t) => softHit(fields, t, parsed));
+  let relevance = core.length ? core.reduce((a, b) => a + b, 0) / core.length : 0;
+  const bonus = soft.reduce((sum, hit, i) => sum + softWeight(parsed.soft[i], parsed) * Math.min(hit, WEIGHT.lead), 0);
+  relevance += Math.min(0.45, bonus);
+  if (isCuratedList(repo) && !parsed.keywords.some((k) => LIST_WORDS.has(k))) relevance *= 0.5;
+  // "alternative to google analytics" wants a replacement, not a Google Analytics plugin.
+  if (wantsAlternative(parsed) && bestHit(fields, alternativesFor("alternative")) === 0) relevance *= 0.7;
+  if (wantsService(parsed) && BUILDING_BLOCK_RE.test(`${fields.name} ${fields.lead} ${fields.topics}`)) relevance *= 0.8;
+  const stars = Math.max(0, Number(repo.stargazers_count) || 0);
+  return {
     repo,
-    coreHits: matchedKeywords(repo, core).length,
-    softHits: matchedKeywords(repo, soft).length,
-  }));
+    coreHits: core.filter((h) => h > 0).length,
+    softHits: soft.filter((h) => h > 0).length,
+    relevance,
+    score: relevance + 0.12 * Math.log10(stars + 1),
+  };
+}
 
-  const levels = [];
-  if (soft.length) {
-    const needSoft = Math.ceil(soft.length / 3);
-    levels.push(["key_terms_plus", (x) => x.coreHits === core.length && x.softHits >= needSoft]);
-  }
-  levels.push(["key_terms", (x) => x.coreHits === core.length]);
-  if (core.length >= 3) levels.push(["most_key_terms", (x) => x.coreHits >= requiredMatches(core.length)]);
+export const RELAXED_MIN_RESULTS = 10;
 
-  for (let i = 0; i < levels.length; i++) {
-    const [level, test] = levels[i];
-    const items = sortByStars(dedupeById([...strictItems, ...scored.filter(test).map((x) => x.repo)]));
-    if (items.length >= RELAXED_MIN_RESULTS || i === levels.length - 1) return { level, items };
+/**
+ * Picks and orders the results.
+ * `trusted` holds ids GitHub matched on every word; they are always eligible. Other candidates must
+ * contain every key term (or a related word); if that leaves fewer than RELAXED_MIN_RESULTS and there
+ * are 3+ key terms, 60% of them is enough. Output is ordered by score (match quality, then stars).
+ * matchLevel describes the loosest result: all_keywords, key_terms_plus, key_terms or most_key_terms.
+ */
+export function rankResults(candidates, parsed, { trusted = new Set() } = {}) {
+  const n = parsed.core.length;
+  const scored = dedupeById(candidates).map((repo) => ({ ...scoreRepo(repo, parsed), trusted: trusted.has(repo.id) }));
+
+  let level = "key_terms";
+  let chosen = scored.filter((x) => x.trusted || x.coreHits === n);
+  if (chosen.length < RELAXED_MIN_RESULTS && n >= 3) {
+    const loose = scored.filter((x) => x.trusted || x.coreHits >= requiredMatches(n));
+    if (loose.length > chosen.length) {
+      chosen = loose;
+      level = "most_key_terms";
+    }
   }
+  if (level === "key_terms" && chosen.length) {
+    const full = (x) => x.trusted || (x.coreHits === n && x.softHits === parsed.soft.length);
+    if (chosen.every(full)) level = "all_keywords";
+    else if (parsed.soft.length && chosen.every((x) => full(x) || x.softHits > 0)) level = "key_terms_plus";
+  }
+
+  chosen.sort(
+    (a, b) =>
+      b.score - a.score ||
+      (b.repo.stargazers_count ?? 0) - (a.repo.stargazers_count ?? 0) ||
+      String(a.repo.full_name).localeCompare(String(b.repo.full_name)),
+  );
+  return { level, items: chosen.map((x) => x.repo) };
 }
 
 /** Highest stars first; ties broken by name so ordering is stable. */

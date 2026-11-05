@@ -29,7 +29,7 @@ const MCP_DEFAULT_PER_PAGE = 10;
 
 const INSTRUCTIONS =
   "Code Search searches public GitHub repositories. Describe the project you need in plain words " +
-  "(e.g. 'self-hosted kanban board with markdown support'); results skip low-star projects and are ranked by stars. " +
+  "(e.g. 'self-hosted kanban board with markdown support'); results skip low-star projects and the best matches come first, then the most-starred. " +
   "Use search_repositories first, then get_repository_readme on the most promising results before recommending one.";
 
 export const TOOLS = [
@@ -38,8 +38,9 @@ export const TOOLS = [
     title: "Search GitHub repositories",
     description:
       "Find public GitHub repositories that match a plain-English description of what is needed. Filler words are " +
-      "dropped, key terms must match, projects under min_stars are skipped and results are ranked by stars (highest " +
-      "first). GitHub qualifiers such as license:mit, topic:cli, user:NAME or pushed:>2025-01-01 can be included in query. " +
+      "dropped, phrases about the user ('for my business', 'for free') are treated as context, key terms or close " +
+      "synonyms must match, projects under min_stars are skipped, and results are ranked by how well their name, " +
+      "topics and description match, then by stars. GitHub qualifiers such as license:mit, topic:cli, user:NAME or pushed:>2025-01-01 can be included in query. " +
       "Returns name, URL, stars, language, license, topics, description and last push date for each repository.",
     inputSchema: {
       type: "object",

@@ -226,9 +226,10 @@ function renderResults(d) {
   }
   const bits = [
     el("strong", { text: `${fmt.format(d.total)} ${d.total === 1 ? "project" : "projects"}` }),
-    ` with ${fmt.format(d.query.minStars)}+ stars, ${LEVEL[d.matchLevel] ?? ""}. Ranked by stars.`,
+    ` with ${fmt.format(d.query.minStars)}+ stars, ${LEVEL[d.matchLevel] ?? ""}. Best matches first, then by stars.`,
   ];
   if (d.query.keyTerms.length) bits.push(el("span", { class: "quiet", text: ` Key terms: ${d.query.keyTerms.join(", ")}.` }));
+  if (d.query.context?.length) bits.push(el("span", { class: "quiet", text: ` Context, not searched: ${d.query.context.join("; ")}.` }));
   if (d.query.ignored.length) bits.push(el("span", { class: "quiet", text: ` Ignored: ${d.query.ignored.join(" ")}.` }));
   for (const n of d.query.notes) bits.push(el("span", { class: "quiet", text: ` ${n}` }));
   if (d.rateLimit?.remaining != null) bits.push(el("span", { class: "quiet", text: ` ${d.rateLimit.remaining} GitHub searches left this minute.` }));

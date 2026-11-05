@@ -3,7 +3,7 @@
   "info": {
     "title": "Code Search API",
     "version": "1.0.0",
-    "description": "GitHub repository search for AI agents. Describe a project in plain words; results skip low-star projects, drop keyword-stuffed spam and are ranked by stars. Searches run on the key owner's own GitHub quota. An MCP server with the same tools is available at /mcp."
+    "description": "GitHub repository search for AI agents. Describe a project in plain words; results skip low-star projects, drop keyword-stuffed spam and come best match first, then by stars. Searches run on the key owner's own GitHub quota. An MCP server with the same tools is available at /mcp."
   },
   "servers": [{ "url": "/" }],
   "security": [{ "bearer": [] }],
@@ -11,7 +11,7 @@
     "/v1/search": {
       "get": {
         "operationId": "searchRepositories",
-        "summary": "Find repositories matching a plain-English description, ranked by stars",
+        "summary": "Find repositories matching a plain-English description, best matches first",
         "parameters": [
           { "name": "q", "in": "query", "description": "What the project should do, up to 500 characters. GitHub qualifiers such as license:mit or topic:cli are allowed; stars:, sort: and in: are ignored. Required unless language is set.", "schema": { "type": "string", "maxLength": 500 } },
           { "name": "language", "in": "query", "description": "Primary language, e.g. Python.", "schema": { "type": "string", "maxLength": 40 } },
@@ -97,6 +97,7 @@
               "keywords": { "type": "array", "items": { "type": "string" } },
               "keyTerms": { "type": "array", "items": { "type": "string" } },
               "descriptiveWords": { "type": "array", "items": { "type": "string" } },
+              "context": { "type": "array", "items": { "type": "string" }, "description": "Phrases about the user, not the project (e.g. 'for my business', 'for free'); not searched for." },
               "qualifiers": { "type": "array", "items": { "type": "string" } },
               "ignored": { "type": "array", "items": { "type": "string" } },
               "language": { "type": ["string", "null"] },

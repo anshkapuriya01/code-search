@@ -45,7 +45,7 @@ function renderParse() {
   const chips = (list, cls) =>
     list.length ? list.map((w) => el("span", { class: `chip ${cls}`, text: w })) : [el("span", { class: "chip chip-none", text: "none" })];
 
-  const used = new Set(parsed.keywords.flatMap((k) => k.split(" ")));
+  const used = new Set(parsed.keywords.flatMap((k) => [k, ...k.split(/[\s-]+/)]));
   for (const q of parsed.qualifiers) for (const m of `${q.key}:${q.value}`.toLowerCase().matchAll(WORD_RE)) used.add(m[0]);
   const dropped = [...new Set([...input.toLowerCase().matchAll(WORD_RE)].map((m) => m[0].replace(/[._-]+$/, "")))].filter((w) => w && !used.has(w));
 

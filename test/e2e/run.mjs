@@ -158,7 +158,7 @@ async function step(name, fn) {
 function checkRanking(data, minStars) {
   const stars = data.items.map((i) => i.stars);
   assert.ok(stars.length > 0, "expected results");
-  assert.deepEqual(stars, [...stars].sort((a, b) => b - a), "results must be sorted by stars, highest first");
+  assert.equal(new Set(data.items.map((i) => i.name)).size, stars.length, "no duplicate results");
   assert.ok(stars.every((s) => s >= minStars), `every result must have >= ${minStars} stars`);
 }
 
@@ -338,7 +338,7 @@ async function main() {
   });
 
   console.log("Search (real GitHub results)");
-  await step("API key search: plain-English requirement, low-star projects removed, ranked by stars", async () => {
+  await step("API key search: plain-English requirement, low-star projects removed, best matches first", async () => {
     const q = encodeURIComponent("self-hosted kanban board with markdown support");
     const r = await anon.req(`/api/search?q=${q}`, { headers: { Authorization: `Bearer ${apiKey}` } });
     assert.equal(r.status, 200, r.text);
@@ -473,7 +473,7 @@ async function main() {
     assert.equal(r.status, 200, r.text);
     const res = r.json.result;
     assert.equal(res.isError, false);
-    assert.match(res.content[0].text, /Ranked by stars/);
+    assert.match(res.content[0].text, /Best matches first, then by stars/);
     assert.match(res.content[0].text, /^1\. /m);
     checkRanking(res.structuredContent, 100);
     assert.ok(res.structuredContent.items.length <= 5);

@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { searchRepositories, GitHubError, BROAD_CANDIDATES, STRICT_MIN_RESULTS } from "../../src/search.js";
+import { searchRepositories, GitHubError, POOL_CANDIDATES } from "../../src/search.js";
 import { parseSearchParams } from "../../public/lib/query.js";
 
 const realFetch = globalThis.fetch;
@@ -45,33 +45,43 @@ const opts = (qs) => {
 const run = (qs) => searchRepositories(opts(qs), { token: "tok", env: {}, origin: null });
 const isBroad = (url) => url.searchParams.get("q").includes(" OR ");
 
-test("strict mode: enough exact matches means one call sorted by stars", async () => {
-  handler = () => ok([repo(1, 900, "kanban markdown"), repo(2, 500, "kanban markdown")], 1500);
-  const r = await run("q=kanban markdown strict-case-1");
+test("strict pass: enough exact matches means one call for up to 100 candidates, ranked and paged locally", async () => {
+  const items = Array.from({ length: 11 }, (_, i) => repo(i + 1, 1000 + i, "A tool that also has kanban and markdown views for planning"));
+  items.push({ ...repo(50, 200, "Simple board"), full_name: "owner/kanban-markdown" }); // the name says what it is
+  handler = () => ok(items, 1500);
+  const r = await run("q=kanban markdown strict-case-1&per_page=5");
   assert.equal(calls.length, 1);
   const u = calls[0].url;
   assert.equal(u.pathname, "/search/repositories");
   assert.equal(u.searchParams.get("q"), "kanban markdown strict-case-1 stars:>=100 archived:false");
   assert.equal(u.searchParams.get("sort"), "stars");
   assert.equal(u.searchParams.get("order"), "desc");
-  assert.equal(u.searchParams.get("per_page"), "20");
+  assert.equal(u.searchParams.get("per_page"), String(POOL_CANDIDATES));
   assert.equal(calls[0].headers.Authorization, "Bearer tok");
   assert.equal(calls[0].headers["User-Agent"], "CodeSearch");
   assert.equal(r.mode, "strict");
-  assert.equal(r.total, 1500);
+  assert.equal(r.total, 12);
+  assert.equal(r.items.length, 5);
   assert.equal(r.hasMore, true);
   assert.equal(r.cached, false);
   assert.equal(r.rateLimit.remaining, 29);
-  assert.deepEqual(r.items.map((i) => i.stars), [900, 500]);
+  assert.equal(r.items[0].name, "owner/kanban-markdown", "best match first, even with fewer stars");
+  assert.deepEqual(r.items.slice(1).map((i) => i.stars), [1010, 1009, 1008, 1007], "then by stars");
+
+  const page3 = await run("q=kanban markdown strict-case-1&per_page=5&page=3");
+  assert.equal(calls.length, 1, "later pages come from the cached ranking");
+  assert.equal(page3.items.length, 2);
+  assert.equal(page3.hasMore, false);
 });
 
-test("strict hasMore stops at GitHub's 1000-result cap", async () => {
-  handler = () => ok([repo(1, 900, "x")], 5000);
-  const r = await run("q=capcheck one&page=20&per_page=50");
+test("pages past the ranked results are empty", async () => {
+  handler = () => ok([repo(1, 900, "capcheck one")], 5000);
+  const r = await run("q=capcheck&page=20&per_page=50");
   assert.equal(r.hasMore, false);
+  assert.deepEqual(r.items, []);
 });
 
-test("relaxed: descriptive words present -> fetches all key terms sorted by stars, then filters", async () => {
+test("descriptive words present -> also fetches the key terms alone; candidates must contain every key term", async () => {
   const strictItems = [repo(1, 300, "lightweight kanban with markdown notes")];
   const coreItems = [
     repo(1, 300, "lightweight kanban with markdown notes"), // duplicate of the exact match
@@ -80,22 +90,49 @@ test("relaxed: descriptive words present -> fetches all key terms sorted by star
     repo(4, 700, "markdown kanban, lightweight"), // key terms + descriptive word
     repo(5, 120, "markdown editor"), // missing "kanban" -> never shown
   ];
-  handler = (url) => (url.searchParams.get("q").startsWith("lightweight") ? ok(strictItems, 1) : ok(coreItems, 40));
+  handler = (url) => {
+    const q = url.searchParams.get("q");
+    if (isBroad(url)) return ok([], 0);
+    return q.startsWith("lightweight") ? ok(strictItems, 1) : ok(coreItems, 40);
+  };
   const r = await run("q=lightweight kanban markdown");
 
-  assert.equal(calls.length, 2, "2 key terms: no OR query needed");
+  assert.equal(calls.length, 3, "strict, key terms only, then OR because fewer than 10 fit");
   const coreCall = calls[1].url;
   assert.equal(coreCall.searchParams.get("q"), "kanban markdown stars:>=100 archived:false");
   assert.equal(coreCall.searchParams.get("sort"), "stars");
-  assert.equal(coreCall.searchParams.get("per_page"), String(BROAD_CANDIDATES));
+  assert.equal(coreCall.searchParams.get("per_page"), String(POOL_CANDIDATES));
+  assert.equal(calls[2].url.searchParams.get("q"), "kanban OR markdown stars:>=100 archived:false");
+  assert.equal(calls[2].url.searchParams.get("sort"), null, "best-match order");
   assert.equal(r.mode, "broad");
-  // Only 3 projects have a descriptive word too (< 5), so the rule loosens to key terms only.
   assert.equal(r.matchLevel, "key_terms");
-  assert.deepEqual(r.items.map((i) => i.stars), [50000, 9000, 700, 300]);
+  assert.deepEqual(r.items.map((i) => i.stars).sort((a, b) => a - b), [300, 700, 9000, 50000]);
   assert.equal(r.total, 4);
 });
 
-test("relaxed: no descriptive words -> OR query in best-match order, keeps projects with most key terms", async () => {
+test("the reported bug: 'self hosted email for my business for free' finds mail servers, not a maps scraper", async () => {
+  const scraper = { ...repo(1, 40000, "Google Maps Scraper & Lead Generation Tool. Extract 50+ data points including business emails"), full_name: "acme/google-maps-scraper" };
+  const mailServer = { ...repo(2, 19000, "Production-ready fullstack but simple mail server (SMTP, IMAP, LDAP, Antispam)", ["mail", "smtp"]), full_name: "acme/docker-mailserver" };
+  const selfHosted = repo(3, 2000, "Open-source, self-hosted newsletter and transactional email platform");
+  handler = (url) => {
+    const q = url.searchParams.get("q");
+    if (q.startsWith("self-hosted email ")) return ok([selfHosted], 1);
+    if (q.startsWith("email ")) return ok([scraper, selfHosted], 2);
+    if (q.startsWith("mail server ")) return ok([mailServer], 1);
+    return ok([], 0);
+  };
+  const r = await run("q=give me self hosted email for my business for free");
+  const queries = calls.map((c) => c.url.searchParams.get("q"));
+  assert.deepEqual(queries, [
+    "self-hosted email stars:>=100 archived:false",
+    "email stars:>=100 archived:false",
+    "mail server stars:>=100 archived:false",
+  ]);
+  assert.ok(queries.every((q) => !/business|free/.test(q)), "context is not searched for");
+  assert.deepEqual(r.items.map((i) => i.name), ["acme/docker-mailserver", "owner/repo3", "acme/google-maps-scraper"]);
+});
+
+test("no descriptive words -> OR query in best-match order, keeps projects with most key terms", async () => {
   const strictAll = [repo(10, 400, "alpha beta gamma"), repo(11, 200, "alpha beta gamma")];
   const anyItems = [
     repo(12, 1000, "alpha beta"),
@@ -103,24 +140,19 @@ test("relaxed: no descriptive words -> OR query in best-match order, keeps proje
     repo(14, 600, "alpha gamma"),
     repo(15, 90000, "alpha only"), // 1 of 3 -> dropped
   ];
-  handler = (url) => {
-    if (isBroad(url)) return ok(anyItems, 100);
-    return Number(url.searchParams.get("page")) === 1 ? ok(strictAll, 2) : ok([], 2);
-  };
+  handler = (url) => (isBroad(url) ? ok(anyItems, 100) : ok(strictAll, 2));
   const r = await run("q=alpha beta gamma&page=2&per_page=2");
 
-  assert.equal(calls.length, 3, "strict page 2, strict page 1 refetch, OR query");
-  assert.equal(calls[1].url.searchParams.get("page"), "1");
-  assert.equal(calls[1].url.searchParams.get("per_page"), String(STRICT_MIN_RESULTS));
-  assert.equal(calls[2].url.searchParams.get("q"), "alpha OR beta OR gamma stars:>=100 archived:false");
-  assert.equal(calls[2].url.searchParams.get("sort"), null, "best-match order");
+  assert.equal(calls.length, 2, "strict, then OR query");
+  assert.equal(calls[1].url.searchParams.get("q"), "alpha OR beta OR gamma stars:>=100 archived:false");
+  assert.equal(calls[1].url.searchParams.get("sort"), null, "best-match order");
   assert.equal(r.matchLevel, "most_key_terms");
   assert.equal(r.total, 5);
-  assert.deepEqual(r.items.map((i) => i.stars), [600, 400], "page 2 of [1000, 800, 600, 400, 200]");
+  assert.deepEqual(r.items.map((i) => i.stars), [1000, 800], "page 2: full matches first, then partial ones by stars");
   assert.equal(r.hasMore, true);
 });
 
-test("relaxed: 3+ key terms and descriptive words -> both candidate queries", async () => {
+test("3+ key terms and descriptive words -> strict, key terms and OR queries", async () => {
   handler = () => ok([], 0);
   const r = await run("q=fast alpha beta gamma");
   assert.equal(calls.length, 3);

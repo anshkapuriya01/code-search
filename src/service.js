@@ -95,6 +95,7 @@ export async function searchFor(user, searchParams, { env, ctx, origin }) {
       keywords: opts.parsed.keywords,
       keyTerms: opts.parsed.core,
       descriptiveWords: opts.parsed.soft,
+      context: opts.parsed.context,
       qualifiers: describeQualifiers(opts.parsed, opts.language),
       ignored: opts.parsed.ignored,
       language: opts.language,
@@ -134,9 +135,10 @@ export function formatSearchText(r) {
   }
   const start = (r.page - 1) * r.perPage;
   lines.push(
-    `${r.total} repositories for "${q.input}" (${scope}); ${MATCH_TEXT[r.matchLevel] ?? r.matchLevel}. Ranked by stars. Showing ${start + 1}-${start + r.items.length}.`,
+    `${r.total} repositories for "${q.input}" (${scope}); ${MATCH_TEXT[r.matchLevel] ?? r.matchLevel}. Best matches first, then by stars. Showing ${start + 1}-${start + r.items.length}.`,
   );
   lines.push(`Key terms: ${q.keyTerms.join(", ") || "none"}${q.descriptiveWords.length ? `; descriptive: ${q.descriptiveWords.join(", ")}` : ""}.`);
+  if (q.context?.length) lines.push(`Treated as context, not searched for: ${q.context.join("; ")}.`);
   r.items.forEach((it, i) => {
     const facts = [`★${it.stars}`, it.language, it.license, it.archived ? "archived" : null, it.pushedAt ? `pushed ${it.pushedAt.slice(0, 10)}` : null]
       .filter(Boolean)

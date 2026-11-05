@@ -10,7 +10,8 @@ import {
   dedupeById,
   simplifyRepo,
   safeHttpUrl,
-  selectRelaxed,
+  rankResults,
+  scoreRepo,
   isLikelySpam,
   QueryError,
   DEFAULT_MIN_STARS,
@@ -84,6 +85,50 @@ test("parseQuery: over the limit, key terms are kept before descriptive words", 
 test("parseQuery falls back to stopwords if nothing else is left", () => {
   assert.deepEqual(parseQuery("the who").keywords, ["the", "who"]);
   assert.deepEqual(parseQuery("").keywords, []);
+});
+
+test("parseQuery: context about the user is dropped, self hosted becomes one requirement", () => {
+  const p = parseQuery("give me self hosted email for my business for free");
+  assert.deepEqual(p.keywords, ["self-hosted", "email"]);
+  assert.deepEqual(p.core, ["email"]);
+  assert.deepEqual(p.soft, ["self-hosted"]);
+  assert.deepEqual(p.context, ["for my business", "for free"]);
+  assert.deepEqual(p.altTerms, ["mail", "server"], "self-hosted email is usually called a mail server");
+  assert.equal(buildQuery(p, filters, "strict"), "self-hosted email stars:>=100 archived:false");
+  assert.equal(buildQuery(p, filters, "alt"), "mail server stars:>=100 archived:false");
+});
+
+test("parseQuery: ways of saying self-hosted", () => {
+  for (const q of ["password manager I can host on my own server", "selfhosted password manager", "password manager to run on our own vps", "on-prem password manager", "self-hosting password manager"]) {
+    const p = parseQuery(q);
+    assert.deepEqual(p.core, ["password", "manager"], q);
+    assert.deepEqual(p.soft, ["self-hosted"], q);
+  }
+});
+
+test("parseQuery: a named product is a reference point, not the subject, next to other key terms", () => {
+  const p = parseQuery("chat app like slack that I can self host for my team");
+  assert.deepEqual(p.core, ["chat"]);
+  assert.deepEqual(p.refs, ["slack"]);
+  assert.ok(p.soft.includes("slack") && p.soft.includes("self-hosted") && p.soft.includes("alternative"));
+  assert.deepEqual(p.context, ["for my team"]);
+
+  const ga = parseQuery("open source alternative to google analytics for my website");
+  assert.deepEqual(ga.core, ["google analytics"]);
+  assert.deepEqual(ga.soft, ["alternative"]);
+  assert.equal(buildQuery(ga, filters, "strict"), 'alternative "google analytics" stars:>=100 archived:false');
+
+  assert.deepEqual(parseQuery("open source notion alternative").refs, ["notion"]);
+  assert.deepEqual(parseQuery("I'd like a kanban board").core, ["kanban", "board"], "'like a' is not a reference");
+});
+
+test("parseQuery keeps subject words that only look like context", () => {
+  assert.deepEqual(parseQuery("business intelligence dashboard").core, ["business", "intelligence", "dashboard"]);
+  assert.deepEqual(parseQuery("web hosting control panel").core, ["web", "hosting", "control", "panel"]);
+  assert.deepEqual(parseQuery("free crm for my small business").core, ["crm"]);
+  assert.deepEqual(parseQuery("e-mail client").core, ["email", "client"]);
+  assert.deepEqual(parseQuery("I'm looking for a markdown editor").core, ["markdown", "editor"]);
+  assert.deepEqual(parseQuery('"for my business" crm').core, ["for my business", "crm"], "quoted phrases are left alone");
 });
 
 test("buildQuery strict requires every keyword and adds star and archive filters", () => {
@@ -187,33 +232,78 @@ test("matchedKeywords handles plurals and the repo language", () => {
   assert.deepEqual(matchedKeywords(repo({ description: "glass ui" }), ["glasses"]), [], "-ss words are not stemmed");
 });
 
-test("selectRelaxed uses the strictest rule that still gives enough results", () => {
-  const parsed = parseQuery("notion alternative self host");
-  assert.deepEqual(parsed.core, ["notion"]);
-  const exact = [repo({ id: 1, full_name: "a/exact", description: "notion alternative self hosted", stargazers_count: 10 })];
-  const plus = [2, 3, 4, 5].map((id) =>
-    repo({ id, full_name: `a/plus${id}`, description: "open source Notion alternative", stargazers_count: id * 100 }),
-  );
-  const coreOnly = repo({ id: 9, full_name: "a/sdk", description: "Notion API client", stargazers_count: 99999 });
-
-  let r = selectRelaxed(exact, [...plus, coreOnly], parsed);
-  assert.equal(r.level, "key_terms_plus");
-  assert.deepEqual(r.items.map((x) => x.id), [5, 4, 3, 2, 1], "the SDK is left out and results are ranked by stars");
-
-  r = selectRelaxed(exact, [plus[0], coreOnly], parsed);
-  assert.equal(r.level, "key_terms", "too few, so the rule is loosened");
-  assert.deepEqual(r.items.map((x) => x.id), [9, 2, 1]);
+test("rankResults: a project that is the thing beats a bigger one that mentions it in passing", () => {
+  const parsed = parseQuery("give me self hosted email for my business for free");
+  const scraper = repo({
+    id: 1,
+    full_name: "acme/google-maps-scraper",
+    description: "Google Maps Scraper & Lead Generation Tool. Extract 50+ data points including business emails and phones",
+    stargazers_count: 40000,
+  });
+  const mailServer = repo({
+    id: 2,
+    full_name: "acme/docker-mailserver",
+    description: "Production-ready fullstack but simple mail server (SMTP, IMAP, LDAP, Antispam, Antivirus, etc.)",
+    topics: ["mail", "smtp", "imap"],
+    stargazers_count: 15000,
+  });
+  const selfHosted = repo({ id: 3, full_name: "acme/inbox", description: "Self-hosted email for teams", stargazers_count: 900 });
+  const r = rankResults([scraper, mailServer, selfHosted], parsed);
+  assert.deepEqual(r.items.map((x) => x.id), [2, 3, 1]);
 });
 
-test("selectRelaxed falls back to most key terms when there are 3+", () => {
+test("rankResults: libraries and test tools rank below services when a self-hosted service is asked for", () => {
+  const parsed = parseQuery("self-hosted email");
+  const lib = repo({ id: 1, full_name: "acme/react-email", description: "Build and send emails using React. A library for email templates", stargazers_count: 20000 });
+  const server = repo({ id: 2, full_name: "acme/mailu", description: "Insular email distribution - mail server as Docker images", topics: ["email", "mailserver"], stargazers_count: 7000 });
+  assert.deepEqual(rankResults([lib, server], parsed).items.map((x) => x.id), [2, 1]);
+});
+
+test("rankResults: 'alternative to X' prefers replacements over X plugins", () => {
+  const parsed = parseQuery("alternative to google analytics");
+  const plugin = repo({ id: 1, full_name: "acme/angular-google-analytics", description: "Google Analytics tracking for your AngularJS apps", stargazers_count: 5000 });
+  const alt = repo({ id: 2, full_name: "acme/vince", description: "Self Hosted Alternative To Google Analytics", stargazers_count: 2000 });
+  assert.deepEqual(rankResults([plugin, alt], parsed).items.map((x) => x.id), [2, 1]);
+});
+
+test("rankResults: awesome lists are pushed down unless a list was asked for", () => {
+  const list = repo({ id: 1, full_name: "acme/awesome-kanban", description: "A curated list of kanban boards", stargazers_count: 90000 });
+  const app = repo({ id: 2, full_name: "acme/kanban", description: "Kanban board", stargazers_count: 3000 });
+  assert.deepEqual(rankResults([list, app], parseQuery("kanban board")).items.map((x) => x.id), [2, 1]);
+  assert.equal(rankResults([list, app], parseQuery("awesome list kanban")).items[0].id, 1);
+});
+
+test("rankResults: candidates must contain every key term (or a related word); trusted ones always count", () => {
+  const parsed = parseQuery("notion alternative self host");
+  assert.deepEqual(parsed.core, ["notion"]);
+  const exact = repo({ id: 1, full_name: "a/exact", description: "notion alternative", stargazers_count: 10 });
+  const unrelated = repo({ id: 9, full_name: "a/sdk", description: "Kanban app", stargazers_count: 99999 });
+  const odd = repo({ id: 7, full_name: "a/odd", description: "Something GitHub matched", stargazers_count: 50 });
+  const r = rankResults([exact, unrelated, odd], parsed, { trusted: new Set([7]) });
+  assert.deepEqual(r.items.map((x) => x.id).sort(), [1, 7]);
+  assert.equal(r.level, "key_terms_plus", "the untrusted pick has every key term and a descriptive word");
+  const full = repo({ id: 2, full_name: "a/full", description: "self-hosted notion alternative" });
+  assert.equal(rankResults([full], parsed).level, "all_keywords");
+});
+
+test("rankResults falls back to most key terms when there are 3+ and too few full matches", () => {
   const parsed = parseQuery("alpha beta gamma");
   const cands = [
     repo({ id: 1, full_name: "a/1", description: "alpha beta", stargazers_count: 5 }),
     repo({ id: 2, full_name: "a/2", description: "alpha", stargazers_count: 500 }),
   ];
-  const r = selectRelaxed([], cands, parsed);
+  const r = rankResults(cands, parsed);
   assert.equal(r.level, "most_key_terms");
   assert.deepEqual(r.items.map((x) => x.id), [1]);
+});
+
+test("scoreRepo weighs where a term appears: name and topics over a mention late in the description", () => {
+  const parsed = parseQuery("kanban");
+  const late = scoreRepo(repo({ description: "A planning tool with many views that you can use for anything at all. Also kanban." }), parsed);
+  const named = scoreRepo(repo({ full_name: "a/kanban-board" }), parsed);
+  const topic = scoreRepo(repo({ topics: ["kanban"] }), parsed);
+  assert.ok(named.relevance > topic.relevance && topic.relevance > late.relevance);
+  assert.ok(late.relevance > 0);
 });
 
 test("isLikelySpam flags keyword-stuffed descriptions only", () => {

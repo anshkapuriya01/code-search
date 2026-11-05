@@ -1,7 +1,7 @@
 # Code Search
 
 GitHub search built for AI agents. An agent describes a project in plain words; Code Search returns the public
-repositories that match, drops low-star projects and keyword-stuffed spam, and ranks the rest by stars.
+repositories that match, drops low-star projects and keyword-stuffed spam, and puts the best matches first, then the most-starred.
 
 - **MCP server** at `/mcp` (Streamable HTTP) with two tools: `search_repositories` and `get_repository_readme`.
 - **REST API** at `/v1/search` and `/v1/repos/{owner}/{repo}/readme`, described in `/openapi.json` and `/llms.txt`.
@@ -22,14 +22,22 @@ claude mcp add --transport http --scope user code-search https://codesearch.ampl
 
 ## How search works
 
-1. Filler words are dropped. The rest split into **key terms** (must match) and **descriptive words**
-   (alternative, library, lightweight, self-hosted, language names), which only help choose between close results.
-2. **Strict pass:** GitHub search requiring every word, `stars:>=min_stars`, archived repos excluded, sorted by stars.
-   Ten or more results: done, in one GitHub call.
-3. **Relaxed pass** (fewer than ten): fetch the most-starred repos containing every key term, plus GitHub's most
-   relevant matches for any key term, then keep the strictest rule that still yields five results
-   (`key_terms_plus`, `key_terms`, `most_key_terms`). The response names the rule in `matchLevel`.
-4. Descriptions over 1,000 characters (keyword-stuffed spam) are dropped; everything is ranked by stars.
+1. **Understand the request.** Phrases are normalised ("self hosted", "host it on my own server", "on-prem" all
+   become `self-hosted`; "e-mail" becomes `email`). Phrases about the user rather than the project ("for my
+   business", "for my team", "for free") are set aside and returned in `query.context`. A product named as a
+   reference ("like slack", "alternative to google analytics") becomes a ranking hint, or the subject when nothing
+   else is. Filler words are dropped; the rest split into **key terms** (must match) and **descriptive words**
+   (alternative, library, lightweight, self-hosted, language names), which lift the results that have them.
+2. **Fetch candidates** (each up to 100, sorted by stars, `stars:>=min_stars`, archived repos excluded): every
+   word; the key terms alone when there are descriptive words; for known subjects a related phrase ("self-hosted
+   email" also asks for `mail server`); and, if fewer than ten fit, GitHub's best matches for any key term.
+3. **Filter.** A project must contain every key term or a close synonym (`email` ≈ mail, smtp, imap) in its name,
+   topics or description; with three or more key terms and fewer than ten full matches, 60% is enough. Descriptions
+   over 1,000 characters (keyword-stuffed spam) are dropped.
+4. **Rank.** A term in the name, topics or opening of the description counts far more than one buried later
+   ("...extracts business emails"), descriptive words add a bonus, awesome-lists and (for self-hosted requests)
+   libraries and test tools are pushed down, and stars break the rest (each 10x adds a little). Up to 100 ranked
+   results are cached and paged. `matchLevel` names the loosest rule a result needed.
 
 The parser (`public/lib/query.js`) is shared: the Worker imports it and the landing page runs the same file in the
 browser for its live demo.

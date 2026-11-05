@@ -2,7 +2,7 @@
 
 > Search GitHub in plain words, free, with no setup: people sign in with GitHub at /app/ and search in the browser; agents use MCP or REST.
 
-> GitHub search built for AI agents. Describe a project in plain words; Code Search returns the public GitHub repositories that match, skips low-star projects, removes keyword-stuffed spam and ranks the rest by stars.
+> GitHub search built for AI agents. Describe a project in plain words; Code Search returns the public GitHub repositories that match, skips low-star projects, removes keyword-stuffed spam and returns the best matches first, then the most-starred. Phrases about the user rather than the project ("for my business", "for free") are set aside and listed in `query.context`.
 
 Code Search is a hosted MCP server and REST API. Every request needs an API key (`Authorization: Bearer <key>`), which a person creates after signing in with GitHub at /app/#keys. Searches run on that person's own GitHub quota (30 searches a minute).
 
@@ -15,7 +15,7 @@ Code Search is a hosted MCP server and REST API. Every request needs an API key 
 
 ## REST
 
-- GET /v1/search?q=...&language=&min_stars=&include_archived=&page=&per_page= : repositories ranked by stars. `matchLevel` is all_keywords, key_terms_plus, key_terms or most_key_terms.
+- GET /v1/search?q=...&language=&min_stars=&include_archived=&page=&per_page= : up to 100 repositories, best matches first, then by stars. `matchLevel` is all_keywords, key_terms_plus, key_terms or most_key_terms.
 - GET /v1/repos/{owner}/{repo}/readme?max_chars= : README text.
 - Errors: JSON {error, code, requestId}. 429 includes Retry-After. Codes: invalid_params, invalid_api_key, signin_required, github_reauth, not_found, rate_limited, too_many_requests, github_error.
 

@@ -40,11 +40,14 @@ const result = {
 
 test("formatSearchText is compact, ranked and tells the agent how to continue", () => {
   const t = formatSearchText(result);
-  assert.match(t, /^12 repositories for "rust file manager" \(100\+ stars, not archived\); all key terms and some descriptive words matched\. Ranked by stars\. Showing 1-2\./);
+  assert.match(t, /^12 repositories for "rust file manager" \(100\+ stars, not archived\); all key terms and some descriptive words matched\. Best matches first, then by stars\. Showing 1-2\./);
   assert.match(t, /\n1\. sxyazi\/yazi \(★43212 · Rust · MIT · pushed 2026-11-03\) — Blazing fast terminal file manager\n/);
   assert.match(t, /\n2\. a\/b \(★150 · archived\)\n/);
   assert.match(t, /call again with page=2/);
   assert.match(t, /Ignored: stars:>5\./);
+  assert.doesNotMatch(t, /Treated as context/);
+  const withContext = formatSearchText({ ...result, query: { ...result.query, context: ["for my business", "for free"] } });
+  assert.match(withContext, /\nTreated as context, not searched for: for my business; for free\.\n/);
   assert.match(formatSearchText({ ...result, items: [], total: 0, hasMore: false }), /No repositories found/);
 });
 

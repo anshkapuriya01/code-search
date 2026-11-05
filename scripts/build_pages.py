@@ -164,7 +164,7 @@ FAQ = [
     ("Which agents work with it?",
      "Any MCP client that speaks HTTP: Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp. Anything else can call the REST API."),
     ("How is this different from GitHub's own search?",
-     "GitHub wants exact keywords and ranks by its own relevance. Code Search takes a plain sentence, removes keyword spam and low-star projects, and ranks the rest by stars."),
+     "GitHub wants exact keywords and ranks by its own relevance. Code Search takes a plain sentence, sets aside phrases about you such as 'for my business' or 'for free', removes keyword spam and low-star projects, and puts the projects that are what you asked for first, then the most-starred."),
     ("What is the link with Amplfyd?",
      "Code Search is part of amplfyd and is made for smooth use with agents on Amplfyd, which launches soon. You don't have to wait for it: Code Search works today in the browser and with any MCP client."),
     ("How do I leave?",
@@ -174,7 +174,7 @@ FAQ = [
 FAQ_LD = {"@context": "https://schema.org", "@graph": [
     {"@type": "WebSite", "name": "Code Search", "url": SITE + "/"},
     {"@type": "SoftwareApplication", "name": "Code Search", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web",
-     "url": SITE + "/", "description": "Search GitHub in plain words. Sign in with GitHub, no setup. Results ranked by stars, spam removed.",
+     "url": SITE + "/", "description": "Search GitHub in plain words. Sign in with GitHub, no setup. Best matches first, then by stars, spam removed.",
      "offers": [{"@type": "Offer", "name": n, "price": "0", "priceCurrency": "USD"} for n in ("Search pass", "Agent pass", "Builder pass")]},
     {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in FAQ]},
 ]}
@@ -210,7 +210,7 @@ def landing():
       </div>
       <a class="hero-pill rise" href="#pricing">Three plans. <b>All of them $0.</b><span class="pill-arrow" aria-hidden="true">→</span></a>
       <h1 id="hero-h"><span class="line"><span data-i="0">Search GitHub</span></span><span class="line"><span class="accent" data-i="1">in plain words</span></span></h1>
-      <p class="hero-sub rise" data-i="2">Sign in with GitHub and start searching. Nothing to install, no keys to set up, nothing to pay. Code Search turns your sentence into the right GitHub query, skips spam and low-star projects, and ranks the rest by stars.</p>
+      <p class="hero-sub rise" data-i="2">Sign in with GitHub and start searching. Nothing to install, no keys to set up, nothing to pay. Code Search turns your sentence into the right GitHub query, skips spam and low-star projects, and puts the best matches first, then the most-starred.</p>
       <div class="hero-cta rise" data-i="3">
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start">{gh()}<span>Sign in with GitHub</span></a>
         <a class="btn btn-big" href="#agents">Connect an agent</a>
@@ -337,7 +337,7 @@ def landing():
             <div class="ticket-main">
               <div>
                 <p class="ticket-kicker">Step 3 · ranked</p>
-                <h3>Get repos ranked by stars</h3>
+                <h3>Get the best matches first</h3>
                 <p>Low-star projects and keyword spam are already gone. Open any result for its description, topics, licence and links.</p>
               </div>
               <div class="ticket-visual" aria-hidden="true">
@@ -389,13 +389,13 @@ def landing():
           </article>
           <article class="cell c-3 no-r">
             <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 2</p>
-            <h3><b>Split the words.</b> Key terms must match. Descriptive words such as alternative, lightweight, self-hosted and language names only break ties.</h3>
-            <div class="figure"><p>Key terms <span class="chip chip-key">notion</span></p><p>Descriptive <span class="chip chip-soft">alternative</span> <span class="chip chip-soft">self</span> <span class="chip chip-soft">host</span></p></div>
+            <h3><b>Split the words.</b> Phrases about you (for my business, for free) are set aside. Key terms must match. Descriptive words such as alternative, self-hosted and language names lift the results that have them.</h3>
+            <div class="figure"><p>Key terms <span class="chip chip-key">notion</span></p><p>Descriptive <span class="chip chip-soft">alternative</span> <span class="chip chip-soft">self-hosted</span></p></div>
           </article>
           <article class="cell c-2">
             <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 3</p>
             <h3><b>Ask for every word.</b> At least 100 stars, archived repos out, sorted by stars.</h3>
-            <div class="figure"><pre>alternative notion self host
+            <div class="figure"><pre>alternative notion self-hosted
 stars:&gt;=100 archived:false
 sort=stars order=desc</pre></div>
           </article>
@@ -421,7 +421,7 @@ sort=stars order=desc</pre></div>
           </article>
           <article class="cell c-3 no-r no-b">
             <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 6</p>
-            <h3><b>Rank by stars.</b> Returned with licence, language, topics and last push, compact enough for an agent's context.</h3>
+            <h3><b>Best match first, then stars.</b> Returned with licence, language, topics and last push, compact enough for an agent's context.</h3>
             {STARS_VIZ}
           </article>
         </div>
@@ -559,7 +559,7 @@ sort=stars order=desc</pre></div>
                 <li>Live search in the dashboard</li>
                 <li>Plain-English queries, GitHub qualifiers welcome</li>
                 <li>Filters for language, minimum stars and archived repos</li>
-                <li>Ranked by stars, keyword spam removed</li>
+                <li>Best matches first, keyword spam removed</li>
                 <li>Your own GitHub quota of 30 searches a minute</li>
               </ul>
               <a class="btn btn-dark btn-big btn-wide btn-ticket" href="/auth/login" data-auth="start">Start searching</a>
@@ -648,7 +648,7 @@ sort=stars order=desc</pre></div>
 </html>
 """
     return head("Code Search: search GitHub in plain words, free",
-                "Search GitHub in plain words with no setup. Sign in with GitHub and use it free. Results ranked by stars, spam and low-star repos removed, GitHub's rate limits handled. MCP and REST for AI agents.",
+                "Search GitHub in plain words with no setup. Sign in with GitHub and use it free. Best matches first, then by stars, spam and low-star repos removed, GitHub's rate limits handled. MCP and REST for AI agents.",
                 "/", ["/js/landing.js"], jsonld=FAQ_LD) + body
 
 
@@ -696,7 +696,7 @@ def docs():
 <ol class="doc-steps">
   <li><div><strong>Sign in with GitHub.</strong> Click <a class="link" href="/auth/login">Sign in with GitHub</a> and approve Code Search on GitHub's page. It asks for no permissions beyond public data.</div></li>
   <li><div><strong>Describe the project.</strong> You land on the dashboard's search page. Type what you need, for example <code>self-hosted kanban board with markdown support</code>, and press Search.</div></li>
-  <li><div><strong>Open a result.</strong> Results are ranked by stars. Click a row for the description, topics, licence and links to GitHub and the project's website.</div></li>
+  <li><div><strong>Open a result.</strong> Projects whose name, topics or opening description fit your words come first, then the most-starred. Click a row for the description, topics, licence and links to GitHub and the project's website.</div></li>
   <li><div><strong>Optional: connect an agent.</strong> Create an API key under <a class="link" href="/app/#keys">API keys</a> and paste the snippet for your agent from <a class="link" href="#agents">Agent setup</a>.</div></li>
 </ol>
 <p class="callout is-tip">Typed a search on the home page before signing in? Code Search keeps it and runs it as soon as you land on the dashboard.</p>""", "Get started")
@@ -732,7 +732,7 @@ def docs():
 {code(SITE + "/mcp", cid="doc-mcp-url")}
 <p>It speaks MCP <code>2026-07-28</code> (stateless, <code>server/discover</code>) and the earlier <code>2025-11-25</code>, <code>2025-06-18</code>, <code>2025-03-26</code> and <code>2024-11-05</code> revisions with the <code>initialize</code> handshake, so current and older clients both work. The endpoint accepts API keys only, not browser cookies.</p>
 {table(["Tool", "What it does", "Arguments"], [
-    ["<code>search_repositories</code>", "Finds public repositories matching a plain-English description, skips low-star projects and ranks by stars.", "<code>query</code> (required), <code>language</code>, <code>min_stars</code>, <code>include_archived</code>, <code>page</code>, <code>per_page</code> (default 10, max 50)"],
+    ["<code>search_repositories</code>", "Finds public repositories matching a plain-English description, skips low-star projects and returns the best matches first, then by stars.", "<code>query</code> (required), <code>language</code>, <code>min_stars</code>, <code>include_archived</code>, <code>page</code>, <code>per_page</code> (default 10, max 50)"],
     ["<code>get_repository_readme</code>", "Returns a repository's README as Markdown so the agent can check a result before recommending it.", "<code>repo</code> as owner/name or a GitHub URL (required), <code>max_chars</code> (200 to 20,000, default 6,000)"],
 ])}
 <p>Both tools are read-only. Results come back as compact text for the model plus <code>structuredContent</code> with the full JSON. Errors such as a rate limit come back with <code>isError: true</code> and say how long to wait. Suggested use: search first, then read the README of the best two or three results before recommending one.</p>""")
@@ -755,19 +755,19 @@ def docs():
 </ul>""")
     main += sec("rest", "REST API", f"""<p>Every endpoint takes <code>Authorization: Bearer &lt;key&gt;</code>, answers JSON and allows cross-origin calls. Each response carries an <code>X-Request-Id</code>; include it when reporting a problem.</p>
 {code('curl -s -H "Authorization: Bearer $CODE_SEARCH_KEY" \\\n  "' + SITE + '/v1/search?q=terminal+file+manager+in+rust&min_stars=500"', cid="doc-curl")}
-{table(["Method and path", "Returns"], [["<code>GET /v1/search</code>", "Repositories matching <code>q</code>, ranked by stars."], ["<code>GET /v1/repos/{owner}/{repo}/readme</code>", "The README as text, cut to <code>max_chars</code>."]])}""", "API reference")
+{table(["Method and path", "Returns"], [["<code>GET /v1/search</code>", "Repositories matching <code>q</code>, best matches first, then by stars."], ["<code>GET /v1/repos/{owner}/{repo}/readme</code>", "The README as text, cut to <code>max_chars</code>."]])}""", "API reference")
     main += sec("params", "Search parameters", table(["Parameter", "Meaning"], [
         ["<code>q</code>", "What the project should do, up to 500 characters. GitHub qualifiers work too: <code>license:mit</code>, <code>topic:cli</code>, <code>user:NAME</code>, <code>pushed:&gt;2025-01-01</code>. <code>stars:</code>, <code>sort:</code> and <code>in:</code> are ignored because Code Search sets them."],
         ["<code>language</code>", "Primary language, for example <code>Python</code>. Overrides a <code>language:</code> typed in <code>q</code>."],
         ["<code>min_stars</code>", "Skip repositories with fewer stars. Default 100, lowest 10."],
         ["<code>include_archived</code>", "<code>true</code> to include archived repositories. Default false."],
-        ["<code>page</code>, <code>per_page</code>", "<code>per_page</code> from 1 to 50, default 20. GitHub serves only the first 1,000 results of any search."],
+        ["<code>page</code>, <code>per_page</code>", "<code>per_page</code> from 1 to 50, default 20. Each search ranks up to 100 repositories."],
     ]))
-    main += sec("response", "Response", f"""<p><code>matchLevel</code> says how the results matched. Code Search first requires every word. Only when fewer than ten projects match does it loosen, stopping at the strictest rule that still finds five.</p>
-{table(["matchLevel", "Meaning"], [["<code>all_keywords</code>", "Every word matched."], ["<code>key_terms_plus</code>", "Every key term and some descriptive words (alternative, library, self-hosted, language names) matched."], ["<code>key_terms</code>", "Every key term matched."], ["<code>most_key_terms</code>", "Most key terms matched (only with three or more key terms)."]])}
+    main += sec("response", "Response", f"""<p>Code Search asks GitHub for every word, then for the key terms alone and, for some subjects, a related phrase (self-hosted email also looks for mail servers). Each project must contain every key term or a close synonym; only when fewer than ten do, it accepts most key terms. Results are ordered by how well the name, topics and opening of the description match, then by stars. Phrases about you rather than the project are listed in <code>query.context</code>. <code>matchLevel</code> describes the loosest result.</p>
+{table(["matchLevel", "Meaning"], [["<code>all_keywords</code>", "Every word matched."], ["<code>key_terms_plus</code>", "Every key term matched, and each result also has at least one descriptive word (alternative, library, self-hosted, language names)."], ["<code>key_terms</code>", "Every key term matched."], ["<code>most_key_terms</code>", "Most key terms matched (only with three or more key terms)."]])}
 {code('''{
   "query": { "input": "terminal file manager in rust", "keyTerms": ["terminal", "file", "manager"],
-             "descriptiveWords": ["rust"], "minStars": 500, "ignored": [], "notes": [] },
+             "descriptiveWords": ["rust"], "context": [], "minStars": 500, "ignored": [], "notes": [] },
   "mode": "broad", "matchLevel": "key_terms_plus",
   "total": 3, "page": 1, "perPage": 20, "hasMore": false, "cached": false,
   "rateLimit": { "limit": 30, "remaining": 27, "reset": 1793766986 },
