@@ -1,0 +1,32 @@
+# Code Search
+
+> Search GitHub in plain words, free, with no setup: people sign in with GitHub at /app/ and search in the browser; agents use MCP or REST.
+
+> GitHub search built for AI agents. Describe a project in plain words; Code Search returns the public GitHub repositories that match, skips low-star projects, removes keyword-stuffed spam and ranks the rest by stars.
+
+Code Search is a hosted MCP server and REST API. Every request needs an API key (`Authorization: Bearer <key>`), which a person creates after signing in with GitHub at /app/#keys. Searches run on that person's own GitHub quota (30 searches a minute).
+
+## MCP
+
+- Endpoint: /mcp (Streamable HTTP). Supports MCP 2026-07-28 (stateless, server/discover) and 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 (initialize handshake).
+- Tool `search_repositories`: arguments `query` (required, plain English, up to 500 characters; GitHub qualifiers such as license:mit or topic:cli allowed), `language`, `min_stars` (default 100, minimum 10), `include_archived`, `page`, `per_page` (default 10, maximum 50).
+- Tool `get_repository_readme`: arguments `repo` (owner/name or GitHub URL, required), `max_chars` (200-20000, default 6000).
+- Suggested use: search first, then read the README of the most promising results before recommending one.
+
+## REST
+
+- GET /v1/search?q=...&language=&min_stars=&include_archived=&page=&per_page= : repositories ranked by stars. `matchLevel` is all_keywords, key_terms_plus, key_terms or most_key_terms.
+- GET /v1/repos/{owner}/{repo}/readme?max_chars= : README text.
+- Errors: JSON {error, code, requestId}. 429 includes Retry-After. Codes: invalid_params, invalid_api_key, signin_required, github_reauth, not_found, rate_limited, too_many_requests, github_error.
+
+## Rate limits
+
+- GitHub's search API allows 30 requests a minute for a signed-in user (10 a minute for search/code, 10 a minute anonymous per IP) and at most 1,000 results per search. Each Code Search user searches on their own GitHub quota.
+- Code Search adds a 120 requests a minute per-account limit, a shared 10-minute cache, and answers 429 with Retry-After when GitHub's limit is reached.
+- Details: /docs/#rate-limits
+
+## Links
+
+- [OpenAPI 3.1 description](/openapi.json)
+- [Human documentation](/docs/)
+- [Agent setup snippets](/docs/#agents)

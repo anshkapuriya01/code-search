@@ -1,0 +1,137 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Code Search API",
+    "version": "1.0.0",
+    "description": "GitHub repository search for AI agents. Describe a project in plain words; results skip low-star projects, drop keyword-stuffed spam and are ranked by stars. Searches run on the key owner's own GitHub quota. An MCP server with the same tools is available at /mcp."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "bearer": [] }],
+  "paths": {
+    "/v1/search": {
+      "get": {
+        "operationId": "searchRepositories",
+        "summary": "Find repositories matching a plain-English description, ranked by stars",
+        "parameters": [
+          { "name": "q", "in": "query", "description": "What the project should do, up to 500 characters. GitHub qualifiers such as license:mit or topic:cli are allowed; stars:, sort: and in: are ignored. Required unless language is set.", "schema": { "type": "string", "maxLength": 500 } },
+          { "name": "language", "in": "query", "description": "Primary language, e.g. Python.", "schema": { "type": "string", "maxLength": 40 } },
+          { "name": "min_stars", "in": "query", "description": "Skip repositories with fewer stars. Values under 10 are raised to 10.", "schema": { "type": "integer", "default": 100, "minimum": 0 } },
+          { "name": "include_archived", "in": "query", "schema": { "type": "boolean", "default": false } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1, "minimum": 1 } },
+          { "name": "per_page", "in": "query", "description": "page * per_page may not exceed 1000.", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "Ranked results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResult" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" },
+          "502": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{repo}/readme": {
+      "get": {
+        "operationId": "getRepositoryReadme",
+        "summary": "Read a repository's README as plain text",
+        "parameters": [
+          { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "max_chars", "in": "query", "schema": { "type": "integer", "default": 6000, "minimum": 200, "maximum": 20000 } }
+        ],
+        "responses": {
+          "200": { "description": "README text", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Readme" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" },
+          "502": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": { "type": "http", "scheme": "bearer", "description": "A Code Search API key from /app/#keys." }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error. 429 responses include a Retry-After header.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error", "code"],
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string", "enum": ["invalid_params", "invalid_query", "invalid_api_key", "signin_required", "github_reauth", "not_found", "rate_limited", "too_many_requests", "github_error", "github_unreachable", "method_not_allowed", "internal_error"] },
+          "retryAfter": { "type": "integer" },
+          "requestId": { "type": "string" }
+        }
+      },
+      "Repository": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "owner/name" },
+          "url": { "type": "string", "format": "uri" },
+          "description": { "type": ["string", "null"] },
+          "stars": { "type": "integer" },
+          "forks": { "type": "integer" },
+          "language": { "type": ["string", "null"] },
+          "topics": { "type": "array", "items": { "type": "string" } },
+          "license": { "type": ["string", "null"], "description": "SPDX id" },
+          "homepage": { "type": ["string", "null"], "format": "uri" },
+          "archived": { "type": "boolean" },
+          "openIssues": { "type": "integer" },
+          "pushedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "object",
+            "properties": {
+              "input": { "type": "string" },
+              "keywords": { "type": "array", "items": { "type": "string" } },
+              "keyTerms": { "type": "array", "items": { "type": "string" } },
+              "descriptiveWords": { "type": "array", "items": { "type": "string" } },
+              "qualifiers": { "type": "array", "items": { "type": "string" } },
+              "ignored": { "type": "array", "items": { "type": "string" } },
+              "language": { "type": ["string", "null"] },
+              "minStars": { "type": "integer" },
+              "includeArchived": { "type": "boolean" },
+              "notes": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "mode": { "type": "string", "enum": ["strict", "broad"] },
+          "matchLevel": { "type": "string", "enum": ["all_keywords", "key_terms_plus", "key_terms", "most_key_terms"] },
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "perPage": { "type": "integer" },
+          "hasMore": { "type": "boolean" },
+          "incomplete": { "type": "boolean" },
+          "cached": { "type": "boolean" },
+          "rateLimit": {
+            "type": ["object", "null"],
+            "properties": { "limit": { "type": ["integer", "null"] }, "remaining": { "type": ["integer", "null"] }, "reset": { "type": ["integer", "null"] } }
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Repository" } },
+          "requestId": { "type": "string" }
+        }
+      },
+      "Readme": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "text": { "type": "string" },
+          "truncated": { "type": "boolean" },
+          "totalChars": { "type": "integer" },
+          "requestId": { "type": "string" }
+        }
+      }
+    }
+  }
+}

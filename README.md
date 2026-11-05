@@ -1,0 +1,113 @@
+# Code Search
+
+GitHub search built for AI agents. An agent describes a project in plain words; Code Search returns the public
+repositories that match, drops low-star projects and keyword-stuffed spam, and ranks the rest by stars.
+
+- **MCP server** at `/mcp` (Streamable HTTP) with two tools: `search_repositories` and `get_repository_readme`.
+- **REST API** at `/v1/search` and `/v1/repos/{owner}/{repo}/readme`, described in `/openapi.json` and `/llms.txt`.
+- **Landing page** at `/`, **dashboard** at `/app/` (live search, agent setup, API keys, usage analytics, account), **docs** at `/docs/`.
+- **Sign in with GitHub** is the only login. Each user's searches run on their own GitHub quota (30/min), so the
+  service scales with its users and stays free to run.
+- Runs on **Cloudflare Workers + D1 + static assets**.
+
+## Agent setup
+
+The landing page, `/docs/#agents` and the dashboard's Connect page show the exact snippet for Claude Code, Codex,
+Cursor, Grok (xAI Responses API), GitHub Copilot in VS Code, Windsurf and Gemini CLI. For example:
+
+```sh
+claude mcp add --transport http --scope user code-search https://codesearch.amplfyd.com/mcp \
+  --header "Authorization: Bearer codesearch_..."
+```
+
+## How search works
+
+1. Filler words are dropped. The rest split into **key terms** (must match) and **descriptive words**
+   (alternative, library, lightweight, self-hosted, language names), which only help choose between close results.
+2. **Strict pass:** GitHub search requiring every word, `stars:>=min_stars`, archived repos excluded, sorted by stars.
+   Ten or more results: done, in one GitHub call.
+3. **Relaxed pass** (fewer than ten): fetch the most-starred repos containing every key term, plus GitHub's most
+   relevant matches for any key term, then keep the strictest rule that still yields five results
+   (`key_terms_plus`, `key_terms`, `most_key_terms`). The response names the rule in `matchLevel`.
+4. Descriptions over 1,000 characters (keyword-stuffed spam) are dropped; everything is ranked by stars.
+
+The parser (`public/lib/query.js`) is shared: the Worker imports it and the landing page runs the same file in the
+browser for its live demo.
+
+## Built for load
+
+| Concern | How it is handled |
+|---|---|
+| GitHub rate limits | Every user searches with their own token. 429s carry `Retry-After`; MCP tools tell the agent how long to wait. |
+| Repeated searches | Shared 10-minute cache (per-isolate memory, then Cloudflare's edge cache on the custom domain). |
+| Bursts of identical searches | Concurrent identical searches share one set of GitHub calls (request coalescing). Same for READMEs (cached 1 h). |
+| Database reads | API keys and sessions are cached in memory for 60 s (invalid keys 30 s). Revocation clears the local entry at once; other isolates follow within 60 s. Key "last used" is written at most once an hour. |
+| Runaway clients | 120 requests/min per account across REST and MCP (Cloudflare rate-limit binding, with an in-memory fallback). |
+| CPU | The heaviest search measured about 1.5 ms of CPU. |
+| Debugging | Every API response has `X-Request-Id` and `Server-Timing`. |
+
+Cloudflare's free plan allows 100,000 Worker requests a day; static pages do not count. Past that, the Workers paid
+plan ($5/month) covers 10 million requests.
+
+## Deploy
+
+Already deployed once? Then this is all:
+
+```sh
+npm run deploy
+```
+
+This version adds the `key_usage` table for the dashboard's Usage tab, so run `npm run db:migrate:remote` once before `npm run deploy`. If you forget, the Worker creates the table itself on the first call (and logs a warning), so tracking still works. Each API call adds one background D1 upsert (counts per key, hour and endpoint, kept 90 days; no query text). If Cloudflare rejects the `[[ratelimits]]` block on your plan,
+delete it from `wrangler.toml`; the Worker falls back to its in-memory limiter.
+
+First deploy from scratch: `npx wrangler login`, `npx wrangler d1 create starscout` (put the id in `wrangler.toml`),
+`npm run db:migrate:remote`, `npm run deploy`, then set the secrets `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and
+`TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`) with `npx wrangler secret put <NAME>`. The GitHub OAuth app needs
+the redirect URIs `https://codesearch.amplfyd.com/auth/callback` and `http://localhost:8787/auth/callback`, with
+"Expire user access tokens" unchecked.
+
+The internal Cloudflare names (`starscout` Worker and database) are not shown to users and are kept so the existing
+deployment, secrets and data carry over.
+
+## Run locally
+
+```sh
+cp .dev.vars.example .dev.vars        # OAuth app id/secret and an encryption key
+npm run db:migrate:local
+npm run dev                           # http://localhost:8787
+```
+
+To try the whole dashboard (sign-in, search, keys, Usage) without a GitHub OAuth app, run `node scripts/dev-mock.mjs` and open http://127.0.0.1:8790. It runs the real Worker and local D1 against a fake GitHub that answers from `public/data/demo.json`.
+
+## Tests
+
+```sh
+npm test            # 54 unit tests: parsing, matching, ranking, search flow, caches, formatting, crypto
+npm run test:e2e    # 33 checks on the real Worker + local D1 with a mock GitHub login: OAuth, keys, REST v1,
+                    # MCP (modern and legacy), caching, errors; searches hit the real GitHub API
+```
+
+## Security
+
+- The OAuth app requests no scopes, so tokens read public data only. Tokens are stored AES-256-GCM encrypted;
+  sessions and API keys only as SHA-256 hashes.
+- OAuth `state` check; `HttpOnly`, `SameSite=Lax`, `__Host-` cookies; same-origin checks on every state-changing call.
+- `/mcp` accepts only API keys (no cookies) and rejects foreign `Origin` headers.
+- Strict Content-Security-Policy (`public/_headers`); pages never render data as HTML.
+
+## Credits
+
+Photographs in `public/img/*.webp` were generated for Code Search with the OpenAI Image API. Logo from the Code Search brand file, traced to SVG with potrace. Fonts: Geist and Geist Mono, Caveat, Anton (SIL Open Font License). Smooth scrolling: Lenis (MIT), vendored in `public/lib/lenis.min.js`. The landing, docs, privacy, terms and 404 pages are generated by `python3 scripts/build_pages.py`; edit that script, not the HTML. Agent marks from
+`@lobehub/icons-static-svg` (MIT) and `simple-icons` (CC0); the marks belong to their owners and Code Search is not
+affiliated with them.
+
+## License
+
+Code Search is licensed under [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](LICENSE)
+(CC BY-NC-SA 4.0). You may use, study, modify and share the code, as long as you:
+
+- **give credit** to the original project,
+- **do not use it commercially** (no selling it, no charging users for it or for a service built on it), and
+- **release your changes under the same license**, so every copy stays open.
+
+Third-party files keep their own licenses (see Credits above).

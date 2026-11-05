@@ -1,0 +1,43 @@
+# Internal Cloudflare names ("starscout") are not shown to users; renaming them would create a new Worker/database.
+name = "starscout"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Served only on the custom domain. Requires amplfyd.com to be an active zone in this Cloudflare account;
+# `wrangler deploy` then creates the DNS record and HTTPS certificate automatically.
+workers_dev = false
+routes = [
+  { pattern = "codesearch.amplfyd.com", custom_domain = true }
+]
+
+# Static files (HTML, CSS, JS) — served free, without running the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+# Browsers mark link clicks as navigations, and Cloudflare sends navigations to the static files first.
+# These paths are not files, so they must always reach the Worker (otherwise /auth/login shows the 404 page).
+run_worker_first = ["/auth/*", "/api/*", "/v1/*", "/mcp", "/mcp/*"]
+
+# Database for users, sessions and API keys.
+# Replace database_id with the id printed by:  npx wrangler d1 create starscout
+[[d1_databases]]
+binding = "DB"
+database_name = "starscout"
+database_id = "cd1eef6a-f9bd-476d-ba51-6f533b6fa06b"
+migrations_dir = "migrations"
+
+# Per-account request limit (120/min) shared by REST and MCP. If your plan does not support this binding,
+# delete this block: the Worker then falls back to a per-isolate in-memory limiter.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "7311"
+simple = { limit = 120, period = 60 }
+
+[observability]
+enabled = true
+
+# Secrets (never put them in this file). Set each one with:  npx wrangler secret put <NAME>
+#   GITHUB_CLIENT_ID      from your GitHub OAuth app
+#   GITHUB_CLIENT_SECRET  from your GitHub OAuth app
+#   TOKEN_ENCRYPTION_KEY  32 random bytes, base64:  openssl rand -base64 32

@@ -1,0 +1,18 @@
+{
+  "name": "code-search",
+  "version": "1.0.0",
+  "private": true,
+  "license": "CC-BY-NC-SA-4.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787 --local-upstream localhost:8787",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply starscout --local",
+    "db:migrate:remote": "wrangler d1 migrations apply starscout --remote",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:e2e": "node test/e2e/run.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.157.0"
+  }
+}

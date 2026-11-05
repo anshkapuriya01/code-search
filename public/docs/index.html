@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Docs: Code Search</title>
+  <meta name="description" content="How to use Code Search: search GitHub with no setup, connect Claude Code, Codex, Cursor and other agents over MCP or REST, API reference, errors and GitHub&#x27;s search rate limits.">
+  <link rel="canonical" href="https://codesearch.amplfyd.com/docs/">
+  <meta name="theme-color" content="#f9f9f9">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Code Search">
+  <meta property="og:title" content="Docs: Code Search">
+  <meta property="og:description" content="How to use Code Search: search GitHub with no setup, connect Claude Code, Codex, Cursor and other agents over MCP or REST, API reference, errors and GitHub&#x27;s search rate limits.">
+  <meta property="og:url" content="https://codesearch.amplfyd.com/docs/">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="preload" href="/fonts/geist-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/geist-mono-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/site.css">
+  <script src="/js/boot.js"></script>
+  <script src="/lib/lenis.min.js" defer></script>
+  <script type="module" src="/js/docs.js"></script>
+</head>
+<body class="docs">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav" id="nav">
+    <nav class="nav-inner" aria-label="Main">
+      <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="34" height="25" draggable="false">Code Search</a>
+      <div class="nav-links">
+        <a href="/#how">Product</a><a href="/#limits">Rate limits</a><a href="/#agents">Agents</a><a href="/#pricing">Pricing</a><a href="/docs/" aria-current="page">Docs</a>
+      </div>
+      <div class="nav-end" id="nav-end">
+        <a class="btn btn-ghost hide-m" href="/auth/login" data-auth="signin">Sign in</a>
+        <a class="btn btn-accent btn-ticket hide-m" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Start searching</span></a>
+        <button class="btn btn-small menu-btn" type="button" id="menu-open" aria-expanded="false" aria-controls="menu">Menu</button>
+      </div>
+    </nav>
+  </header>
+  <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu" data-lenis-prevent hidden>
+    <button class="btn btn-small menu-close" type="button" id="menu-close">Close</button>
+    <a href="/#how">Product</a>
+    <a href="/#limits">Rate limits</a>
+    <a href="/#agents">Agents</a>
+    <a href="/#pricing">Pricing</a>
+    <a href="/docs/">Docs</a>
+    <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a>
+  </div>
+
+  <div class="docs-mobile-nav"><label class="sr-only" for="docs-jump">Jump to section</label><select id="docs-jump"><optgroup label="Get started"><option value="introduction">Introduction</option><option value="quickstart">Quickstart</option><option value="dashboard">Search in the dashboard</option><option value="queries">Writing good queries</option><option value="results">Reading the results</option></optgroup><optgroup label="Agents"><option value="keys">API keys</option><option value="mcp">MCP server</option><option value="agents">Agent setup</option></optgroup><optgroup label="API reference"><option value="rest">REST API</option><option value="params">Search parameters</option><option value="response">Response</option><option value="readme">README endpoint</option><option value="errors">Errors</option></optgroup><optgroup label="Limits"><option value="rate-limits">GitHub rate limits</option><option value="limits">Code Search limits</option><option value="caching">Caching</option></optgroup><optgroup label="Account"><option value="usage">Usage analytics</option><option value="security">Security and privacy</option><option value="delete">Delete your account</option><option value="machine">For machines</option></optgroup></select></div>
+  <div class="docs-layout">
+    <nav class="docs-nav" aria-label="Docs" data-lenis-prevent><div class="docs-group"><h2>Get started</h2><a href="#introduction" data-spy="introduction">Introduction</a><a href="#quickstart" data-spy="quickstart">Quickstart</a><a href="#dashboard" data-spy="dashboard">Search in the dashboard</a><a href="#queries" data-spy="queries">Writing good queries</a><a href="#results" data-spy="results">Reading the results</a></div><div class="docs-group"><h2>Agents</h2><a href="#keys" data-spy="keys">API keys</a><a href="#mcp" data-spy="mcp">MCP server</a><a href="#agents" data-spy="agents">Agent setup</a></div><div class="docs-group"><h2>API reference</h2><a href="#rest" data-spy="rest">REST API</a><a href="#params" data-spy="params">Search parameters</a><a href="#response" data-spy="response">Response</a><a href="#readme" data-spy="readme">README endpoint</a><a href="#errors" data-spy="errors">Errors</a></div><div class="docs-group"><h2>Limits</h2><a href="#rate-limits" data-spy="rate-limits">GitHub rate limits</a><a href="#limits" data-spy="limits">Code Search limits</a><a href="#caching" data-spy="caching">Caching</a></div><div class="docs-group"><h2>Account</h2><a href="#usage" data-spy="usage">Usage analytics</a><a href="#security" data-spy="security">Security and privacy</a><a href="#delete" data-spy="delete">Delete your account</a><a href="#machine" data-spy="machine">For machines</a></div></nav>
+    <main id="main" class="docs-main">
+<div class="doc-hero" id="introduction">
+        <p class="doc-kicker">Documentation</p>
+        <h1 class="doc-title">Code Search docs</h1>
+        <p class="doc-lead">Code Search turns a plain-English description into the best-starred GitHub repositories that match. Use it in the browser with nothing to set up, or give it to an AI agent over MCP or REST. Every plan is free.</p>
+        <div class="flow" role="img" aria-label="You or your agent send a plain sentence to Code Search, which asks GitHub and returns repositories ranked by stars"><div class="flow-node"><span class="flow-ico"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#codex"/></svg></span><b>You or your agent</b><small>a plain sentence</small></div><span class="flow-line" aria-hidden="true"></span><div class="flow-node is-hot"><span class="flow-ico"><img src="/img/logo.svg" alt="" width="30" height="22" draggable="false"></span><b>Code Search</b><small>parse · filter · rank</small></div><span class="flow-line" aria-hidden="true"></span><div class="flow-node"><span class="flow-ico"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg></span><b>GitHub</b><small>your 30 searches / min</small></div><span class="flow-line" aria-hidden="true"></span><div class="flow-node"><span class="flow-ico star">★</span><b>Ranked repos</b><small>spam removed</small></div></div>
+        <p class="callout is-tip">Code Search is made for smooth use with agents on Amplfyd, which launches soon. It already works with any MCP client and over REST.</p>
+      </div>
+<section class="doc-sec" id="quickstart" aria-labelledby="quickstart-h"><p class="doc-kicker">Get started</p><h2 id="quickstart-h"><a href="#quickstart">Quickstart</a></h2>
+<p>You can run your first search in about a minute. There is nothing to install.</p>
+<ol class="doc-steps">
+  <li><div><strong>Sign in with GitHub.</strong> Click <a class="link" href="/auth/login">Sign in with GitHub</a> and approve Code Search on GitHub's page. It asks for no permissions beyond public data.</div></li>
+  <li><div><strong>Describe the project.</strong> You land on the dashboard's search page. Type what you need, for example <code>self-hosted kanban board with markdown support</code>, and press Search.</div></li>
+  <li><div><strong>Open a result.</strong> Results are ranked by stars. Click a row for the description, topics, licence and links to GitHub and the project's website.</div></li>
+  <li><div><strong>Optional: connect an agent.</strong> Create an API key under <a class="link" href="/app/#keys">API keys</a> and paste the snippet for your agent from <a class="link" href="#agents">Agent setup</a>.</div></li>
+</ol>
+<p class="callout is-tip">Typed a search on the home page before signing in? Code Search keeps it and runs it as soon as you land on the dashboard.</p>
+</section>
+<section class="doc-sec" id="dashboard" aria-labelledby="dashboard-h"><h2 id="dashboard-h"><a href="#dashboard">Search in the dashboard</a></h2>
+<p>The dashboard at <a class="link" href="/app/">/app/</a> is the no-setup way to use Code Search. It calls the same search as the API, with your own GitHub quota.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead><tbody><tr><td>Search box</td><td>Up to 500 characters of plain English. GitHub qualifiers are allowed.</td></tr><tr><td>Language</td><td>Keeps repositories whose main language matches, for example Python or Rust.</td></tr><tr><td>Minimum stars</td><td>Skips repositories with fewer stars. Default 100, lowest 10.</td></tr><tr><td>Include archived</td><td>Off by default, because archived projects no longer take changes.</td></tr><tr><td>Previous / Next</td><td>Pages through results, 20 at a time. GitHub serves only the first 1,000 results of a search.</td></tr></tbody></table></div>
+<p>Below the box, Code Search says how many projects matched, which rule matched them, which words it treated as key terms, and how many GitHub searches you have left this minute.</p>
+</section>
+<section class="doc-sec" id="queries" aria-labelledby="queries-h"><h2 id="queries-h"><a href="#queries">Writing good queries</a></h2>
+<p>Describe the project, not yourself. Words like <em>I need</em>, <em>open source</em> or <em>that I can</em> are dropped anyway.</p>
+<ul class="doc-list">
+  <li><span><strong>Name the job.</strong> “convert pdf tables to excel” beats “pdf tool”.</span></li>
+  <li><span><strong>Add a language or style as a descriptive word.</strong> “terminal file manager in rust” keeps Rust as a tie-breaker instead of a hard filter. Use the Language filter for a hard filter.</span></li>
+  <li><span><strong>Use qualifiers when you know them.</strong> <code>license:mit</code>, <code>topic:cli</code>, <code>user:NAME</code> and <code>pushed:&gt;2025-01-01</code> pass straight to GitHub.</span></li>
+  <li><span><strong>Raise the star floor for crowded topics.</strong> “machine learning time series forecasting” with 1,000+ stars returns established libraries only.</span></li>
+</ul>
+<p><code>stars:</code>, <code>sort:</code> and <code>in:</code> qualifiers are ignored, because Code Search sets them itself.</p>
+</section>
+<section class="doc-sec" id="results" aria-labelledby="results-h"><h2 id="results-h"><a href="#results">Reading the results</a></h2>
+<p>Each result shows the repository, stars, main language, licence and an activity label based on the last push.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Label</th><th scope="col">Meaning</th></tr></thead><tbody><tr><td>Active</td><td>Pushed in the last 30 days.</td></tr><tr><td>Recent</td><td>Pushed in the last year.</td></tr><tr><td>Quiet</td><td>No push for more than a year.</td></tr><tr><td>Archived</td><td>Read-only on GitHub. Only shown when you include archived repositories.</td></tr></tbody></table></div>
+<p>The match rule tells you how strict the search had to be. See <a class="link" href="#response">Response</a> for the four rules.</p>
+</section>
+<section class="doc-sec" id="keys" aria-labelledby="keys-h"><p class="doc-kicker">Agents</p><h2 id="keys-h"><a href="#keys">API keys</a></h2>
+<p>Agents and scripts authenticate with an API key. Create keys in the dashboard under <a class="link" href="/app/#keys">API keys</a>.</p>
+<ul class="doc-list">
+  <li><span>Give each agent or script its own key, so you can revoke one without touching the rest.</span></li>
+  <li><span>A key is shown once, when you create it. Code Search stores only its SHA-256 hash and cannot show it again.</span></li>
+  <li><span>Every key searches on your GitHub quota of 30 searches a minute.</span></li>
+  <li><span>Revoked keys stop working within a minute.</span></li>
+</ul>
+<p>Send the key on every request as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+</section>
+<section class="doc-sec" id="mcp" aria-labelledby="mcp-h"><h2 id="mcp-h"><a href="#mcp">MCP server</a></h2>
+<p>One Streamable HTTP endpoint for every MCP client:</p>
+<div class="code-wrap"><pre class="dark-code"><code id="doc-mcp-url">https://codesearch.amplfyd.com/mcp</code></pre><button class="copy-inline" type="button" data-copy>Copy</button></div>
+<p>It speaks MCP <code>2026-07-28</code> (stateless, <code>server/discover</code>) and the earlier <code>2025-11-25</code>, <code>2025-06-18</code>, <code>2025-03-26</code> and <code>2024-11-05</code> revisions with the <code>initialize</code> handshake, so current and older clients both work. The endpoint accepts API keys only, not browser cookies.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Tool</th><th scope="col">What it does</th><th scope="col">Arguments</th></tr></thead><tbody><tr><td><code>search_repositories</code></td><td>Finds public repositories matching a plain-English description, skips low-star projects and ranks by stars.</td><td><code>query</code> (required), <code>language</code>, <code>min_stars</code>, <code>include_archived</code>, <code>page</code>, <code>per_page</code> (default 10, max 50)</td></tr><tr><td><code>get_repository_readme</code></td><td>Returns a repository's README as Markdown so the agent can check a result before recommending it.</td><td><code>repo</code> as owner/name or a GitHub URL (required), <code>max_chars</code> (200 to 20,000, default 6,000)</td></tr></tbody></table></div>
+<p>Both tools are read-only. Results come back as compact text for the model plus <code>structuredContent</code> with the full JSON. Errors such as a rate limit come back with <code>isError: true</code> and say how long to wait. Suggested use: search first, then read the README of the best two or three results before recommending one.</p>
+</section>
+<section class="doc-sec" id="agents" aria-labelledby="agents-h"><h2 id="agents-h"><a href="#agents">Agent setup</a></h2>
+<p>Pick your agent. Replace the placeholder with a key from the <a class="link" href="/app/#keys">dashboard</a>; the dashboard's Connect page fills it in for you.</p>
+<div class="connect doc-connect">
+  <div class="connect-list"><div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div></div>
+  <div class="window connect-code" role="tabpanel" id="agent-panel">
+    <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
+    <pre class="code-block"><code id="code-block"></code></pre>
+    <p class="code-note" id="code-note"></p>
+  </div>
+</div>
+<h3>Example prompts</h3>
+<p>Once connected, ask in plain words and mention the tool so the agent uses it:</p>
+<ul class="doc-list">
+  <li><span>“Use code-search to find a well-maintained Rust crate for parsing TOML, read the READMEs of the top three and recommend one.”</span></li>
+  <li><span>“Before you write a date picker, check with code-search whether a popular React component already does it.”</span></li>
+  <li><span>“Find self-hosted alternatives to Notion with at least 1,000 stars and compare their licences.”</span></li>
+  <li><span>“Search GitHub for an MIT-licensed Python package that turns PDF tables into Excel and show how to install it.”</span></li>
+</ul>
+</section>
+<section class="doc-sec" id="rest" aria-labelledby="rest-h"><p class="doc-kicker">API reference</p><h2 id="rest-h"><a href="#rest">REST API</a></h2>
+<p>Every endpoint takes <code>Authorization: Bearer &lt;key&gt;</code>, answers JSON and allows cross-origin calls. Each response carries an <code>X-Request-Id</code>; include it when reporting a problem.</p>
+<div class="code-wrap"><pre class="dark-code"><code id="doc-curl">curl -s -H &quot;Authorization: Bearer $CODE_SEARCH_KEY&quot; \
+  &quot;https://codesearch.amplfyd.com/v1/search?q=terminal+file+manager+in+rust&amp;min_stars=500&quot;</code></pre><button class="copy-inline" type="button" data-copy>Copy</button></div>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Method and path</th><th scope="col">Returns</th></tr></thead><tbody><tr><td><code>GET /v1/search</code></td><td>Repositories matching <code>q</code>, ranked by stars.</td></tr><tr><td><code>GET /v1/repos/{owner}/{repo}/readme</code></td><td>The README as text, cut to <code>max_chars</code>.</td></tr></tbody></table></div>
+</section>
+<section class="doc-sec" id="params" aria-labelledby="params-h"><h2 id="params-h"><a href="#params">Search parameters</a></h2>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Parameter</th><th scope="col">Meaning</th></tr></thead><tbody><tr><td><code>q</code></td><td>What the project should do, up to 500 characters. GitHub qualifiers work too: <code>license:mit</code>, <code>topic:cli</code>, <code>user:NAME</code>, <code>pushed:&gt;2025-01-01</code>. <code>stars:</code>, <code>sort:</code> and <code>in:</code> are ignored because Code Search sets them.</td></tr><tr><td><code>language</code></td><td>Primary language, for example <code>Python</code>. Overrides a <code>language:</code> typed in <code>q</code>.</td></tr><tr><td><code>min_stars</code></td><td>Skip repositories with fewer stars. Default 100, lowest 10.</td></tr><tr><td><code>include_archived</code></td><td><code>true</code> to include archived repositories. Default false.</td></tr><tr><td><code>page</code>, <code>per_page</code></td><td><code>per_page</code> from 1 to 50, default 20. GitHub serves only the first 1,000 results of any search.</td></tr></tbody></table></div>
+</section>
+<section class="doc-sec" id="response" aria-labelledby="response-h"><h2 id="response-h"><a href="#response">Response</a></h2>
+<p><code>matchLevel</code> says how the results matched. Code Search first requires every word. Only when fewer than ten projects match does it loosen, stopping at the strictest rule that still finds five.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">matchLevel</th><th scope="col">Meaning</th></tr></thead><tbody><tr><td><code>all_keywords</code></td><td>Every word matched.</td></tr><tr><td><code>key_terms_plus</code></td><td>Every key term and some descriptive words (alternative, library, self-hosted, language names) matched.</td></tr><tr><td><code>key_terms</code></td><td>Every key term matched.</td></tr><tr><td><code>most_key_terms</code></td><td>Most key terms matched (only with three or more key terms).</td></tr></tbody></table></div>
+<div class="code-wrap"><pre class="dark-code"><code>{
+  &quot;query&quot;: { &quot;input&quot;: &quot;terminal file manager in rust&quot;, &quot;keyTerms&quot;: [&quot;terminal&quot;, &quot;file&quot;, &quot;manager&quot;],
+             &quot;descriptiveWords&quot;: [&quot;rust&quot;], &quot;minStars&quot;: 500, &quot;ignored&quot;: [], &quot;notes&quot;: [] },
+  &quot;mode&quot;: &quot;broad&quot;, &quot;matchLevel&quot;: &quot;key_terms_plus&quot;,
+  &quot;total&quot;: 3, &quot;page&quot;: 1, &quot;perPage&quot;: 20, &quot;hasMore&quot;: false, &quot;cached&quot;: false,
+  &quot;rateLimit&quot;: { &quot;limit&quot;: 30, &quot;remaining&quot;: 27, &quot;reset&quot;: 1793766986 },
+  &quot;items&quot;: [
+    { &quot;name&quot;: &quot;sxyazi/yazi&quot;, &quot;url&quot;: &quot;https://github.com/sxyazi/yazi&quot;, &quot;stars&quot;: 43212,
+      &quot;language&quot;: &quot;Rust&quot;, &quot;license&quot;: &quot;MIT&quot;, &quot;topics&quot;: [&quot;cli&quot;, &quot;file-explorer&quot;],
+      &quot;description&quot;: &quot;Blazing fast terminal file manager written in Rust, based on async I/O.&quot;,
+      &quot;homepage&quot;: &quot;https://yazi-rs.github.io&quot;, &quot;archived&quot;: false, &quot;forks&quot;: 1100,
+      &quot;openIssues&quot;: 50, &quot;pushedAt&quot;: &quot;2026-11-03T10:00:00Z&quot; }
+  ],
+  &quot;requestId&quot;: &quot;8f2c…&quot;
+}</code></pre><button class="copy-inline" type="button" data-copy>Copy</button></div>
+<p><code>rateLimit</code> mirrors GitHub's <code>x-ratelimit-*</code> headers for your token. It is <code>null</code> when the answer came from cache, because no GitHub call was made.</p>
+</section>
+<section class="doc-sec" id="readme" aria-labelledby="readme-h"><h2 id="readme-h"><a href="#readme">README endpoint</a></h2>
+<div class="code-wrap"><pre class="dark-code"><code>GET /v1/repos/sxyazi/yazi/readme?max_chars=6000
+
+{ &quot;repo&quot;: &quot;sxyazi/yazi&quot;, &quot;url&quot;: &quot;https://github.com/sxyazi/yazi#readme&quot;,
+  &quot;text&quot;: &quot;## Yazi …&quot;, &quot;truncated&quot;: true, &quot;totalChars&quot;: 14820, &quot;requestId&quot;: &quot;…&quot; }</code></pre><button class="copy-inline" type="button" data-copy>Copy</button></div>
+<p>READMEs are cached for an hour. A missing README answers 404 with <code>not_found</code>. README reads use GitHub's general REST quota (5,000 an hour), not the search quota.</p>
+</section>
+<section class="doc-sec" id="errors" aria-labelledby="errors-h"><h2 id="errors-h"><a href="#errors">Errors</a></h2>
+<p>Errors are JSON: <code>{ "error": "…", "code": "…", "requestId": "…" }</code>, with <code>Retry-After</code> when waiting helps.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Status</th><th scope="col">code</th><th scope="col">What to do</th></tr></thead><tbody><tr><td>400</td><td><code>invalid_params</code>, <code>invalid_query</code></td><td>Fix the parameter named in <code>error</code>.</td></tr><tr><td>401</td><td><code>invalid_api_key</code>, <code>signin_required</code></td><td>Send a valid key. Revoked keys stop working within a minute.</td></tr><tr><td>401</td><td><code>github_reauth</code></td><td>The owner revoked GitHub access; they must sign in to Code Search again.</td></tr><tr><td>404</td><td><code>not_found</code></td><td>No such repository or README.</td></tr><tr><td>429</td><td><code>rate_limited</code></td><td>Your GitHub search limit was reached. Wait for <code>Retry-After</code> seconds.</td></tr><tr><td>429</td><td><code>too_many_requests</code></td><td>More than 120 requests a minute on one account. Slow down.</td></tr><tr><td>502</td><td><code>github_error</code>, <code>github_unreachable</code></td><td>GitHub failed; retry with backoff.</td></tr></tbody></table></div>
+</section>
+<section class="doc-sec" id="rate-limits" aria-labelledby="rate-limits-h"><p class="doc-kicker">Limits</p><h2 id="rate-limits-h"><a href="#rate-limits">GitHub rate limits</a></h2>
+<p>Code Search runs on GitHub's REST API, so GitHub's limits apply. These are GitHub's published numbers, checked on 4 November 2026.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">What</th><th scope="col">GitHub's limit</th></tr></thead><tbody><tr><td>Search endpoints, authenticated</td><td>30 requests a minute (all search endpoints except code search)</td></tr><tr><td>Code search endpoint (<code>search/code</code>)</td><td>10 requests a minute, authentication required</td></tr><tr><td>Search endpoints, unauthenticated</td><td>10 requests a minute, counted per IP address</td></tr><tr><td>Results per search</td><td>Up to 1,000 results; later pages are not served</td></tr><tr><td>Query length</td><td>256 characters, not counting qualifiers; at most five AND, OR or NOT operators</td></tr><tr><td>Search scope</td><td>GitHub looks through up to 4,000 matching repositories per query and may return <code>incomplete_results: true</code> when a query times out</td></tr><tr><td>Primary REST limit, authenticated</td><td>5,000 requests an hour per user (15,000 for some GitHub Enterprise Cloud apps)</td></tr><tr><td>Primary REST limit, unauthenticated</td><td>60 requests an hour per IP address</td></tr><tr><td>Secondary limits</td><td>No more than 100 concurrent requests; 900 points a minute per REST endpoint (GET counts 1, writes 5); about 90 seconds of CPU time per minute. GitHub may change these without notice.</td></tr></tbody></table></div>
+<h3>How GitHub reports it</h3>
+<p>Every GitHub response carries <code>x-ratelimit-limit</code>, <code>x-ratelimit-remaining</code>, <code>x-ratelimit-used</code>, <code>x-ratelimit-reset</code> (UTC epoch seconds) and <code>x-ratelimit-resource</code> (for searches, <code>search</code>). Over a limit, GitHub answers <code>403</code> or <code>429</code>. GitHub asks clients to wait until <code>x-ratelimit-reset</code>, or for <code>retry-after</code> seconds when that header is present, and warns that integrations which keep calling while limited can be banned.</p>
+<h3>What Code Search does about it</h3>
+<ul class="doc-list">
+  <li><span><strong>Your own quota.</strong> Each user signs in with their own GitHub account, so searches use that user's 30 a minute. Users never share a limit.</span></li>
+  <li><span><strong>Few calls per search.</strong> A search costs one GitHub call when ten or more projects match every word, and at most four when it has to widen.</span></li>
+  <li><span><strong>Cache and coalescing.</strong> Identical searches within ten minutes are answered from cache without touching your quota, and identical searches arriving at the same moment share one GitHub call.</span></li>
+  <li><span><strong>Honest back-off.</strong> When GitHub says stop, Code Search answers <code>429 rate_limited</code> with <code>Retry-After</code> set from GitHub's reset time. It never retries in a loop on your behalf.</span></li>
+  <li><span><strong>Graceful widening.</strong> If the strict pass found results but a widening call hits the limit, you get the strict results instead of an error.</span></li>
+</ul>
+<p class="callout">In practice that means roughly 7 to 30 fresh searches a minute per user, depending on how many need widening, plus unlimited repeats from cache.</p>
+<p>Sources: <a class="link" href="https://docs.github.com/en/rest/search/search#rate-limit" rel="noopener">REST API endpoints for search</a>, <a class="link" href="https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api" rel="noopener">Rate limits for the REST API</a>.</p>
+</section>
+<section class="doc-sec" id="limits" aria-labelledby="limits-h"><h2 id="limits-h"><a href="#limits">Code Search limits</a></h2>
+<ul class="doc-list">
+  <li><span>120 requests a minute per account, across REST and MCP together. Over that you get <code>429 too_many_requests</code>.</span></li>
+  <li><span>Queries up to 500 characters; <code>per_page</code> up to 50.</span></li>
+  <li><span>README text from 200 to 20,000 characters per call.</span></li>
+  <li><span>Keyword-stuffed spam (descriptions over 1,000 characters) is removed from every result.</span></li>
+</ul>
+</section>
+<section class="doc-sec" id="caching" aria-labelledby="caching-h"><h2 id="caching-h"><a href="#caching">Caching</a></h2>
+<p>Searches are cached for ten minutes and READMEs for an hour, shared across users, first in the Worker's memory and then in Cloudflare's edge cache. Cached answers say <code>"cached": true</code> and cost no GitHub quota. Responses carry <code>Server-Timing</code> so you can see where time went.</p>
+</section>
+<section class="doc-sec" id="usage" aria-labelledby="usage-h"><p class="doc-kicker">Account</p><h2 id="usage-h"><a href="#usage">Usage analytics</a></h2>
+<p>The dashboard's <a class="link" href="/app/#usage">Usage</a> tab shows when and how many times your keys called Code Search, so you can see which agent is busy, spot failures and check how close you run to GitHub's limit.</p>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">View</th><th scope="col">What it shows</th></tr></thead><tbody><tr><td>Totals</td><td>API calls, success rate, rate-limited calls (429), share answered from cache, the busiest hour or day and the last call.</td></tr><tr><td>Calls over time</td><td>One bar per hour for the last 24 hours, or per day for 7, 30 or 90 days, split into OK, errors and rate-limited.</td></tr><tr><td>By key</td><td>Each key's share of calls, its failures and its last call. Searches made in the dashboard appear as Dashboard (browser).</td></tr><tr><td>By endpoint</td><td>MCP search_repositories and get_repository_readme, and the REST search and README routes.</td></tr><tr><td>When your agents call</td><td>A weekday-by-hour heatmap in your local time.</td></tr></tbody></table></div>
+<p>Filter by key from the menu, or open a key's usage from its 7-day spark on the API keys tab. Counts are stored per key and hour and kept for 90 days. The text of your searches is never stored.</p>
+</section>
+<section class="doc-sec" id="security" aria-labelledby="security-h"><h2 id="security-h"><a href="#security">Security and privacy</a></h2>
+<ul class="doc-list">
+  <li><span>The GitHub app requests no scopes, so tokens can read public data only.</span></li>
+  <li><span>GitHub tokens are stored encrypted with AES-256-GCM. Sessions and API keys are stored only as SHA-256 hashes.</span></li>
+  <li><span>Sign-in is protected by an OAuth <code>state</code> check; cookies are <code>HttpOnly</code>, <code>SameSite=Lax</code> and <code>__Host-</code> prefixed.</span></li>
+  <li><span>The MCP endpoint accepts API keys only and rejects foreign <code>Origin</code> headers.</span></li>
+  <li><span>Pages run under a strict Content-Security-Policy and never render API data as HTML.</span></li>
+</ul>
+<p>More in the <a class="link" href="/privacy/">privacy notice</a>.</p>
+</section>
+<section class="doc-sec" id="delete" aria-labelledby="delete-h"><h2 id="delete-h"><a href="#delete">Delete your account</a></h2>
+<p>Open <a class="link" href="/app/#account">Account</a> in the dashboard and choose Delete account. Code Search removes your keys, sessions and stored token and revokes its access to your GitHub account in the same step. Agents using your keys stop working at once.</p>
+<p>To pause access without deleting anything, revoke Code Search in your GitHub settings under Applications.</p>
+</section>
+<section class="doc-sec" id="machine" aria-labelledby="machine-h"><h2 id="machine-h"><a href="#machine">For machines</a></h2>
+<p><a class="link" href="/openapi.json">/openapi.json</a> describes the REST API in OpenAPI 3.1, and <a class="link" href="/llms.txt">/llms.txt</a> explains Code Search to a language model in plain text.</p>
+</section>
+<nav class="doc-pager" aria-label="Next steps"><a class="btn" href="/">← Back to home</a><a class="btn btn-accent btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a></nav>
+    </main>
+    <aside class="docs-aside" aria-label="Rate limits at a glance">
+      <div class="aside-card">
+        <h2>Limits at a glance</h2>
+        <dl>
+          <dt>GitHub search</dt><dd>30 / min</dd>
+          <dt>Code search API</dt><dd>10 / min</dd>
+          <dt>Anonymous</dt><dd>10 / min</dd>
+          <dt>Results cap</dt><dd>1,000</dd>
+          <dt>Code Search</dt><dd>120 / min</dd>
+          <dt>Cache</dt><dd>10 min</dd>
+        </dl>
+        <a class="link" href="#rate-limits">Full details</a>
+      </div>
+      <div class="aside-card">
+        <h2>No setup needed</h2>
+        <p>Sign in with GitHub and search in the browser. Keys are only for agents.</p>
+        <a class="btn btn-accent btn-wide btn-ticket" href="/auth/login" data-auth="start">Start searching</a>
+      </div>
+    </aside>
+  </div>
+  <div class="frame">
+  <footer class="footer">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="44" height="32" draggable="false">Code Search</a>
+        <h2>The easiest way to search GitHub.</h2>
+        <pre class="ascii foot-ascii" data-ascii="ground" aria-hidden="true"></pre>
+      </div>
+      <div class="foot-cells">
+        <a class="foot-cell" href="/docs/#rate-limits"><span class="k">GitHub limit</span><b>30 searches a minute, per user</b></a>
+        <a class="foot-cell" href="/docs/#mcp"><span class="k">MCP</span><b>2 tools, any MCP client</b></a>
+        <a class="foot-cell" href="/openapi.json"><span class="k">REST</span><b>OpenAPI 3.1</b></a>
+        <a class="foot-cell" href="/llms.txt"><span class="k">For language models</span><b>llms.txt</b></a>
+        <a class="foot-cell" href="/#amplfyd"><span class="k">Made for Amplfyd</span><b>Agents, launching soon</b></a>
+        <a class="foot-cell" href="/app/"><span class="k">Dashboard</span><b>Search now <span class="arrow">→</span></b></a>
+      </div>
+    </div>
+    <div class="foot-cols">
+      <nav class="foot-col" aria-labelledby="f1"><h2 id="f1">Product</h2><a href="/#how">How it works</a><a href="/#limits">Rate limits</a><a href="/#pricing">Pricing</a><a href="/#faq">Questions</a></nav>
+      <nav class="foot-col" aria-labelledby="f2"><h2 id="f2">Developers</h2><a href="/docs/">Docs</a><a href="/docs/#mcp">MCP server</a><a href="/docs/#rest">REST API</a><a href="/docs/#agents">Agent setup</a></nav>
+      <nav class="foot-col" aria-labelledby="f3"><h2 id="f3">Account</h2><a href="/auth/login">Sign up</a><a href="/auth/login">Sign in</a><a href="/app/">Dashboard</a><a href="/app/#keys">API keys</a></nav>
+      <nav class="foot-col" aria-labelledby="f4"><h2 id="f4">Legal</h2><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://docs.github.com/en/rest/search/search" rel="noopener">GitHub search docs</a></nav>
+    </div>
+    <div class="wordmark" aria-hidden="true"><span>C</span><span>O</span><span>D</span><span>E</span><span class="gap"></span><span>S</span><span>E</span><span>A</span><span>R</span><span>C</span><span>H</span></div>
+    <div class="foot-last">
+      <p>© 2026 Code Search, part of amplfyd.</p>
+      <p>Not affiliated with GitHub, Anthropic, OpenAI, Cursor, xAI or Google. Their marks belong to them.</p>
+    </div>
+  </footer>
+
+  </div>
+</body>
+</html>

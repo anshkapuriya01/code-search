@@ -1,0 +1,222 @@
+// Code Search — GitHub search for AI agents. Cloudflare Worker.
+//   /mcp            MCP server (Streamable HTTP, API key)
+//   /v1/*           REST API (API key, or session cookie from the web app); /api/search is an alias
+//   /api/*          web app endpoints (session cookie)
+//   /auth/*         GitHub OAuth
+// Everything else is static files in /public (landing page, app, docs, openapi.json, llms.txt).
+
+import { json, errorJson } from "./http.js";
+import { decryptText, ConfigError } from "./crypto.js";
+import { QueryError } from "../public/lib/query.js";
+import { GitHubError } from "./search.js";
+import { handleMcp } from "./mcp.js";
+import { authenticate, enforceRateLimit, searchFor, readmeFor, noteKeyUse, ServiceError } from "./service.js";
+import { recordCall, outcomeOf, usageFor, parseDays } from "./usage.js";
+import {
+  startLogin,
+  finishLogin,
+  getSession,
+  endSession,
+  clearSessionCookie,
+  isSameOrigin,
+  listApiKeys,
+  createApiKey,
+  deleteApiKey,
+  deleteAccount,
+  revokeGitHubGrant,
+} from "./auth.js";
+
+const PUBLIC_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Expose-Headers": "X-Request-Id, Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
+  "Access-Control-Max-Age": "86400",
+};
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const started = Date.now();
+    const requestId = request.headers.get("cf-ray") || crypto.randomUUID();
+    let response;
+    try {
+      response = await route(request, env, ctx, url, requestId);
+    } catch (err) {
+      console.error("Unhandled error", requestId, err instanceof Error ? err.stack : String(err));
+      const message = err instanceof ConfigError ? "The server is not configured correctly." : "Something went wrong.";
+      response = isApiPath(url.pathname)
+        ? errorJson(500, message, { code: "internal_error", requestId }, isPublicApi(url.pathname) ? PUBLIC_CORS : {})
+        : new Response(message, { status: 500, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    }
+    if (isApiPath(url.pathname)) {
+      response = new Response(response.body, response);
+      response.headers.set("X-Request-Id", requestId);
+      response.headers.set("Server-Timing", `total;dur=${Date.now() - started}`);
+      response.headers.set("X-Content-Type-Options", "nosniff");
+    }
+    return response;
+  },
+};
+
+const isApiPath = (p) => p === "/mcp" || p.startsWith("/api/") || p.startsWith("/v1/") || p.startsWith("/auth/");
+const isPublicApi = (p) => p.startsWith("/v1/") || p === "/api/search";
+
+async function route(request, env, ctx, url, requestId) {
+  const { pathname } = url;
+  if (pathname === "/mcp") {
+    if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return errorJson(500, "The server is not configured correctly.", { code: "internal_error" });
+    return handleMcp(request, env, ctx, url);
+  }
+  if (pathname.startsWith("/auth/")) return handleAuth(request, env, url);
+  if (pathname === "/v1/search" || pathname === "/api/search") return publicApi(request, env, ctx, url, requestId, "search");
+  const readme = pathname.match(/^\/v1\/repos\/([^/]+)\/([^/]+)\/readme$/);
+  if (readme) return publicApi(request, env, ctx, url, requestId, "readme", `${safeDecode(readme[1])}/${safeDecode(readme[2])}`);
+  if (pathname.startsWith("/v1/")) {
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: PUBLIC_CORS });
+    return errorJson(404, "Not found. The API is described at /openapi.json.", { code: "not_found", requestId }, PUBLIC_CORS);
+  }
+  if (pathname.startsWith("/api/")) return handleAppApi(request, env, url);
+  if (env.ASSETS) return env.ASSETS.fetch(request);
+  return new Response("Not found", { status: 404 });
+}
+
+// ---------- Public REST API (/v1) ----------
+
+async function publicApi(request, env, ctx, url, requestId, kind, repo) {
+  const fail = (status, code, message, extra = {}) => {
+    const headers = { ...PUBLIC_CORS };
+    if (extra.retryAfter) headers["Retry-After"] = String(extra.retryAfter);
+    return errorJson(status, message, { code, requestId, ...extra }, headers);
+  };
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: PUBLIC_CORS });
+  if (request.method !== "GET") return fail(405, "method_not_allowed", "Use GET.");
+  if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return fail(500, "internal_error", "The server is not configured correctly.");
+
+  const endpoint = kind === "search" ? "rest_search" : "rest_readme";
+  let caller = null;
+  try {
+    caller = await authenticate(request, env, url);
+    await enforceRateLimit(env, caller.user);
+    const body =
+      kind === "search"
+        ? await searchFor(caller.user, url.searchParams, { env, ctx, origin: url.origin })
+        : await readmeFor(caller.user, repo, url.searchParams.get("max_chars"), { env });
+    noteKeyUse(env, ctx, caller.apiKey);
+    recordCall(env, ctx, caller, endpoint, "ok", body.cached === true);
+    const headers = { ...PUBLIC_CORS, "Cache-Control": "private, no-store" };
+    const rl = body.rateLimit;
+    if (rl?.limit != null) headers["X-RateLimit-Limit"] = String(rl.limit);
+    if (rl?.remaining != null) headers["X-RateLimit-Remaining"] = String(rl.remaining);
+    if (rl?.reset != null) headers["X-RateLimit-Reset"] = String(rl.reset);
+    return json({ ...body, requestId }, 200, headers);
+  } catch (err) {
+    if (caller) recordCall(env, ctx, caller, endpoint, outcomeOf(err));
+    if (err instanceof ServiceError) return fail(err.status, err.code, err.message, err.extra);
+    if (err instanceof GitHubError) {
+      return fail(err.status, err.extra.code ?? "github_error", err.message, err.extra.retryAfter ? { retryAfter: err.extra.retryAfter } : {});
+    }
+    if (err instanceof QueryError) return fail(400, "invalid_params", err.message);
+    throw err;
+  }
+}
+
+// ---------- OAuth ----------
+
+async function handleAuth(request, env, url) {
+  const { pathname } = url;
+  const method = request.method;
+  if (pathname === "/auth/login" && method === "GET") return startLogin(env, url);
+  if (pathname === "/auth/callback" && method === "GET") return finishLogin(request, env, url);
+  if (pathname === "/auth/logout" && method === "POST") {
+    if (!isSameOrigin(request, url)) return errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
+    const session = env.DB ? await getSession(request, env, url) : null;
+    if (session) await endSession(env, session.sessionHash);
+    return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie(url) });
+  }
+  return errorJson(404, "Not found.", { code: "not_found" });
+}
+
+// ---------- Web app API (session cookie) ----------
+
+async function handleAppApi(request, env, url) {
+  const { pathname } = url;
+  const method = request.method;
+  if (!env.DB) return errorJson(500, "The server is not configured correctly.", { code: "internal_error" });
+  const session = await getSession(request, env, url);
+  const unauthorized = () => errorJson(401, "Sign in first.", { code: "signin_required" });
+  const crossSite = () => errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
+
+  if (pathname === "/api/me" && method === "GET") {
+    if (!session) return unauthorized();
+    const { login, name, avatar_url } = session.user;
+    return json({ user: { login, name, avatarUrl: avatar_url } });
+  }
+
+  if (pathname === "/api/keys") {
+    if (!session) return unauthorized();
+    if (method === "GET") return json({ keys: await listApiKeys(env, session.user.id) });
+    if (method === "POST") {
+      if (!isSameOrigin(request, url)) return crossSite();
+      const body = await readJson(request);
+      if (body === undefined) return errorJson(400, 'Send a JSON body like {"name": "my agent"}.', { code: "invalid_params" });
+      const result = await createApiKey(env, session.user.id, body?.name);
+      if (result.error) return errorJson(result.status, result.error, { code: result.status === 409 ? "limit_reached" : "invalid_params" });
+      return json({ key: result.key, ...result.record }, 201);
+    }
+    return errorJson(405, "Use GET or POST.", { code: "method_not_allowed" });
+  }
+
+  if (pathname === "/api/usage") {
+    if (!session) return unauthorized();
+    if (method !== "GET") return errorJson(405, "Use GET.", { code: "method_not_allowed" });
+    const days = parseDays(url.searchParams.get("days"));
+    if (days === null) return errorJson(400, "days must be 1, 7, 30 or 90.", { code: "invalid_params" });
+    const keys = await listApiKeys(env, session.user.id);
+    return json(await usageFor(env, session.user.id, days, keys));
+  }
+
+  const keyMatch = pathname.match(/^\/api\/keys\/([A-Za-z0-9_-]{1,40})$/);
+  if (keyMatch) {
+    if (!session) return unauthorized();
+    if (method !== "DELETE") return errorJson(405, "Use DELETE.", { code: "method_not_allowed" });
+    if (!isSameOrigin(request, url)) return crossSite();
+    const deleted = await deleteApiKey(env, session.user.id, keyMatch[1]);
+    return deleted ? json({ ok: true }) : errorJson(404, "Key not found.", { code: "not_found" });
+  }
+
+  if (pathname === "/api/account/delete") {
+    if (!session) return unauthorized();
+    if (method !== "POST") return errorJson(405, "Use POST.", { code: "method_not_allowed" });
+    if (!isSameOrigin(request, url)) return crossSite();
+    try {
+      await revokeGitHubGrant(env, await decryptText(session.user.token_enc, env.TOKEN_ENCRYPTION_KEY));
+    } catch (err) {
+      console.error("Could not decrypt token during account deletion", String(err));
+    }
+    await deleteAccount(env, session.user.id);
+    return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie(url) });
+  }
+
+  return errorJson(404, "Not found.", { code: "not_found" });
+}
+
+/** Malformed percent-encoding becomes an invalid name (rejected with 400) instead of throwing. */
+function safeDecode(part) {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return "";
+  }
+}
+
+/** Parses a small JSON body. Returns undefined if it is missing, too large, or invalid. */
+async function readJson(request) {
+  const text = await request.text();
+  if (!text || text.length > 4096) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
