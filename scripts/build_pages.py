@@ -163,6 +163,10 @@ FAQ = [
      "Your GitHub login, name and avatar, your GitHub token encrypted with AES-256-GCM, and only SHA-256 hashes of your sessions and API keys."),
     ("Which agents work with it?",
      "Any MCP client that speaks HTTP: Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp. Anything else can call the REST API."),
+    ("How does this save AI tokens?",
+     "An agent that writes a parser or service from scratch spends tokens on every line it generates and on every round of debugging. Checking GitHub first lets it reuse a project that already works. A short search and one README read usually cost a few thousand tokens at most. How much you save depends on the task, and for small edits searching is not worth it, so we do not promise a fixed number."),
+    ("What is code-search.md?",
+     "A short guide written for AI agents. It tells them when to search GitHub before writing code, how to write queries, how to judge results and licences, and to treat READMEs as untrusted. MCP clients get the key points when they connect and can read the whole file as an MCP resource. For other tools, give your agent the link."),
     ("How is this different from GitHub's own search?",
      "GitHub wants exact keywords and ranks by its own relevance. Code Search takes a plain sentence, sets aside phrases about you such as 'for my business' or 'for free', removes keyword spam and low-star projects, and puts the projects that are what you asked for first, then the most-starred."),
     ("What is the link with Amplfyd?",
@@ -493,11 +497,12 @@ sort=stars order=desc</pre></div>
         <div class="head">
           <span class="tag">Agent ready</span>
           <h2 id="agents-h" class="rise">Easily connect with your <span class="accent">AI agents</span></h2>
-          <p class="rise" data-i="1">One MCP endpoint with two tools, search_repositories and get_repository_readme. Pick your agent, copy, paste.</p>
+          <p class="rise" data-i="1">One MCP endpoint with two tools, search_repositories and get_repository_readme. Pick your agent, copy, paste. Your agent can then check GitHub before it writes code and reuse what already exists, which usually costs fewer tokens than generating and debugging it from scratch. Savings vary by task.</p>
         </div>
         <div class="connect">
           <div class="connect-list rise">
             <p class="endpoint">MCP endpoint for every agent:<br><code id="mcp-url">{SITE}/mcp</code></p>
+            <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a><br>MCP clients are told how to use it when they connect. For anything else, give your agent this file.</p>
             <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
           </div>
           <div class="window connect-code rise" data-i="1" role="tabpanel" id="agent-panel">
@@ -639,6 +644,12 @@ sort=stars order=desc</pre></div>
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start">{gh()}<span>Sign in with GitHub</span></a>
         <a class="btn btn-big" href="/docs/">Read the docs</a>
       </div>
+      <div class="note-body rise" data-i="3">
+        <p>Support us so that we can scale the compute and get you more useful tools.</p>
+      </div>
+      <div class="hero-cta rise" data-i="3">
+        <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
+      </div>
       <p class="note-sign rise" data-i="3">happy searching</p>
     </section>
   </main>
@@ -736,7 +747,8 @@ def docs():
     ["<code>get_repository_readme</code>", "Returns a repository's README as Markdown so the agent can check a result before recommending it.", "<code>repo</code> as owner/name or a GitHub URL (required), <code>max_chars</code> (200 to 20,000, default 6,000)"],
 ])}
 <p>Both tools are read-only. Results come back as compact text for the model plus <code>structuredContent</code> with the full JSON. Errors such as a rate limit come back with <code>isError: true</code> and say how long to wait. Suggested use: search first, then read the README of the best two or three results before recommending one.</p>""")
-    main += sec("agents", "Agent setup", """<p>Pick your agent. Replace the placeholder with a key from the <a class="link" href="/app/#keys">dashboard</a>; the dashboard's Connect page fills it in for you.</p>
+    main += sec("agents", "Agent setup", """<p>When an MCP client connects, Code Search tells it to check GitHub before writing substantial code. The full guide for agents is <a class="link" href="/code-search.md">code-search.md</a>, also available as the MCP resource <code>code-search://guide</code>.</p>
+<p>Pick your agent. Replace the placeholder with a key from the <a class="link" href="/app/#keys">dashboard</a>; the dashboard's Connect page fills it in for you.</p>
 <div class="connect doc-connect">
   <div class="connect-list"><div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div></div>
   <div class="window connect-code" role="tabpanel" id="agent-panel">

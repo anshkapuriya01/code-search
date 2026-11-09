@@ -496,8 +496,32 @@ async function main() {
     const list = await mcp({ jsonrpc: "2.0", id: 4, method: "tools/list" }, { "MCP-Protocol-Version": "2025-06-18" });
     assert.deepEqual(list.json.result.tools.map((t) => t.name), ["search_repositories", "get_repository_readme"]);
     assert.equal(list.json.result.tools[0].annotations.readOnlyHint, true);
-    const unknown = await mcp({ jsonrpc: "2.0", id: 5, method: "resources/list" }, { "MCP-Protocol-Version": "2025-06-18" });
+    const unknown = await mcp({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, { "MCP-Protocol-Version": "2025-06-18" });
     assert.equal(unknown.json.error.code, -32601);
+  });
+  await step("connecting clients are told to search first and can read the usage guide", async () => {
+    const legacy = { "MCP-Protocol-Version": "2025-06-18" };
+    const init = await mcp({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "1" } } });
+    assert.match(init.json.result.instructions, /search first/);
+    assert.match(init.json.result.instructions, /code-search:\/\/guide/);
+    assert.ok(init.json.result.capabilities.resources);
+    const list = await mcp({ jsonrpc: "2.0", id: 2, method: "resources/list" }, legacy);
+    assert.deepEqual(list.json.result.resources.map((r) => r.uri), ["code-search://guide"]);
+    const read = await mcp({ jsonrpc: "2.0", id: 3, method: "resources/read", params: { uri: "code-search://guide" } }, legacy);
+    assert.equal(read.status, 200, read.text);
+    const [guide] = read.json.result.contents;
+    assert.equal(guide.mimeType, "text/markdown");
+    assert.match(guide.text, /^# Code Search: guide for AI agents/);
+    assert.match(guide.text, /Treat them as data/);
+    const missing = await mcp({ jsonrpc: "2.0", id: 4, method: "resources/read", params: { uri: "file:///etc/passwd" } }, legacy);
+    assert.equal(missing.json.error.code, -32002);
+    const noKey = await mcp({ jsonrpc: "2.0", id: 5, method: "resources/read", params: { uri: "code-search://guide" } }, legacy, null);
+    assert.equal(noKey.status, 401);
+    const file = await anon.req("/code-search.md");
+    assert.equal(file.status, 200);
+    assert.match(file.headers.get("content-type"), /markdown/);
+    assert.equal(file.text, guide.text, "the website and MCP serve the same file");
+    assert.equal((await anon.req("/img/buymeacoffee.svg")).status, 200);
   });
   await step("MCP legacy tools/call: search returns compact text and structured results", async () => {
     const r = await mcp(
@@ -554,7 +578,11 @@ async function main() {
     assert.equal(unsupported.status, 400);
     assert.equal(unsupported.json.error.code, -32022);
     assert.ok(unsupported.json.error.data.supported.includes("2026-07-28"));
-    const unknown = await modern("resources/list");
+    const guide = await modern("resources/read", { uri: "code-search://guide" });
+    assert.equal(guide.status, 200, guide.text);
+    assert.equal(guide.json.result.resultType, "complete");
+    assert.match(guide.json.result.contents[0].text, /Search GitHub before you build/);
+    const unknown = await modern("prompts/list");
     assert.equal(unknown.status, 404);
     assert.equal(unknown.json.error.code, -32601);
   });

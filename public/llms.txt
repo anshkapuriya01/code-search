@@ -28,6 +28,7 @@ Code Search is a hosted MCP server and REST API. Every request needs an API key 
 
 ## Links
 
+- [Guide for AI agents: when to search GitHub before writing code, and how](/code-search.md)
 - [OpenAPI 3.1 description](/openapi.json)
 - [Human documentation](/docs/)
 - [Agent setup snippets](/docs/#agents)

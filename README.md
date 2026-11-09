@@ -7,6 +7,7 @@ repositories that match, drops low-star projects and keyword-stuffed spam, and p
 - **REST API** at `/v1/search` and `/v1/repos/{owner}/{repo}/readme`, described in `/openapi.json` and `/llms.txt`.
 - **Landing page** at `/`, **dashboard** at `/app/` (live search, agent setup, API keys, usage analytics, account), **docs** at `/docs/`.
 - **AI query understanding** with Cloudflare Workers AI, and an **admin console** at `/admin/`.
+- **A guide for AI agents** at `/code-search.md`, also served as the MCP resource `code-search://guide`. MCP clients get its key points when they connect.
 - **Sign in with GitHub** is the only login. Each user's searches run on their own GitHub quota (30/min), so the
   service scales with its users and stays free to run.
 - Runs on **Cloudflare Workers + D1 + static assets**.

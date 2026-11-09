@@ -159,6 +159,7 @@
         <div class="connect-list">
           <p class="endpoint">MCP endpoint<code id="mcp-url"></code></p>
           <p class="endpoint key-note" id="connect-key-note"></p>
+          <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a><br>MCP clients are told how to use it when they connect. For anything else, give your agent this file.</p>
           <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
         </div>
         <div class="window connect-code" role="tabpanel" id="agent-panel">
@@ -170,6 +171,7 @@
       <section class="card prompts-card" aria-labelledby="pr-h">
         <div class="examples-head"><h2 id="pr-h">Example prompts for your agent</h2><p>Mention code-search so the agent picks the tool.</p></div>
         <div class="prompts">
+          <div class="prompt"><p>“Read https://codesearch.amplfyd.com/code-search.md and follow it: check GitHub with code-search before you write anything substantial.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
           <div class="prompt"><p>“Use code-search to find a well-maintained Rust crate for parsing TOML, read the READMEs of the top three and recommend one.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
           <div class="prompt"><p>“Before you write a date picker, check with code-search whether a popular React component already does it.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
           <div class="prompt"><p>“Find self-hosted alternatives to Notion with at least 1,000 stars and compare their licences.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
