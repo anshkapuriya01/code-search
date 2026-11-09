@@ -81,7 +81,7 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-Migrations add `key_usage` and the admin, log and AI tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning). If you forget, the Worker creates the table itself on the first call (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
+Migrations add `key_usage` and the admin, log and AI tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
 delete it from `wrangler.toml`; the Worker falls back to its in-memory limiter.
 
 First deploy from scratch: `npx wrangler login`, `npx wrangler d1 create starscout` (put the id in `wrangler.toml`),
