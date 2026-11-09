@@ -73,6 +73,7 @@ const AI_STATUS = {
   no_binding: "Rules (AI not connected)",
   ai_disabled: "Rules (AI turned off)",
   budget_exhausted: "Rules (daily AI budget used)",
+  user_budget_exhausted: "Rules (this account's daily AI allowance used)",
   ai_timeout: "Rules (AI too slow)",
   ai_error: "Rules (AI failed)",
   ai_invalid: "Rules (AI answer rejected)",
@@ -104,12 +105,12 @@ function renderSummary(s) {
   const aiNote = s.ai.enabled ? `of ${fmt.format(s.ai.budget)} today · ${fmt.format(s.ai.calls)} requests` : "AI is off, rules are in use";
   $("stats").replaceChildren(
     stat("Users", fmt.format(s.users.total), `${fmt.format(s.users.newLast7Days)} new in 7 days`),
-    stat("Active users", fmt.format(s.users.activeLast24h), "last 24 hours"),
-    stat("API calls", fmt.format(s.calls.last24h), `${fmt.format(s.calls.failedLast24h)} failed, last 24 hours`),
-    stat("Searches", fmt.format(s.calls.searchesLast24h), `${fmt.format(s.calls.aiSearchesLast24h)} understood by AI`),
+    stat("Active users", fmt.format(s.users.activeToday), "today (UTC)"),
+    stat("API calls", fmt.format(s.calls.today), `${fmt.format(s.calls.failedToday)} failed, today (UTC)`),
+    stat("Searches", fmt.format(s.calls.searchesToday), `${fmt.format(s.calls.aiSearchesToday)} understood by AI`),
     stat("AI neurons", fmt.format(Math.round(s.ai.neurons)), aiNote),
   );
-  $("log-note").textContent = `Newest first. Kept for ${s.log.retentionDays} days, up to ${fmt.format(s.log.maxRows)} calls.`;
+  $("log-note").textContent = `Newest first. Kept for ${s.log.retentionDays} days, up to ${fmt.format(s.log.maxRows)} calls. Totals in the Users table cover the last ${s.log.totalsDays} days.`;
 }
 
 $("registration-toggle").addEventListener("click", async () => {

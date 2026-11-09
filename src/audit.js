@@ -4,18 +4,23 @@
 // Never stored: API keys, session tokens, GitHub tokens, IP addresses. Calls without a valid account cannot be
 // attributed to a user and are not stored, so anonymous traffic cannot fill the database.
 
+import { countRequestStatement, siteIsFull } from "./limits.js";
+import { isAdmin } from "./config.js";
 import { withAppTables } from "./schema.js";
 
-// D1's free tier allows 500 MB per database. MAX_ROWS at the largest row size stays well below it, because a
-// full database would also stop sign-ins and new API keys.
-export const MAX_ROWS = 30_000;
+// D1's free tier allows 500 MB per database, and a full database would stop sign-ins and new API keys. Every
+// column is capped in bytes, so MAX_ROWS at the largest possible row (about 9 KB) is under 250 MB.
+export const MAX_ROWS = 25_000;
+export const USER_LOG_ROWS = 2_000; // newest rows kept per account, so one account cannot push out the others
 export const RETENTION_DAYS = 90;
 const PRUNE_EVERY = 100; // inserts
 const PRUNE_BATCH = 500;
 const DAY_MS = 86_400_000;
-export const MAX_RESPONSE_BYTES = 12_000;
-const MAX_REQUEST_CHARS = 2_000;
-const MAX_ERROR_CHARS = 300;
+export const MAX_RESPONSE_BYTES = 6_000;
+const MAX_REQUEST_BYTES = 1_000;
+const MAX_QUERY_BYTES = 600;
+const MAX_CLIENT_BYTES = 200;
+const MAX_ERROR_BYTES = 300;
 const MAX_DESCRIPTION_CHARS = 120;
 const README_PREVIEW_CHARS = 1_000;
 
@@ -37,8 +42,10 @@ export function startAudit(request, url, requestId) {
     cached: false,
     aiStatus: null,
     error: null,
-    skip: false,
-    client: (request.headers.get("User-Agent") ?? "").slice(0, 200) || null,
+    skip: false, // leave out of the log
+    uncounted: false, // leave out of the daily totals
+    limited: false, // blocked by our own limits: write nothing at all
+    client: clipText(request.headers.get("User-Agent") ?? "", MAX_CLIENT_BYTES) || null,
     country: typeof request.cf?.country === "string" ? request.cf.country : null,
   };
 }
@@ -56,6 +63,7 @@ export function auditError(audit, err) {
     code: String(err?.code ?? err?.extra?.code ?? (err?.status === 429 ? "rate_limited" : "error")),
     message: String(err?.message ?? err),
   };
+  if (err?.ownLimit) audit.limited = true;
 }
 
 /** Records a search and the page of results it returned. */
@@ -106,21 +114,43 @@ export function auditReadme(audit, body) {
   };
 }
 
-const byteLength = (s) => new TextEncoder().encode(s).length;
+function byteLength(s) {
+  return new TextEncoder().encode(s).length;
+}
 
 // Very long pages lose their last items, never become broken JSON.
 function fitItems(output) {
-  const out = { ...output, items: [...output.items] };
-  const total = out.items.length;
-  while (out.items.length && byteLength(JSON.stringify(out)) > MAX_RESPONSE_BYTES) out.items.pop();
-  if (out.items.length < total) out.itemsLogged = `${out.items.length} of ${total}`;
+  const items = [];
+  // Room for the item separators and the "itemsLogged" note that may be added below.
+  let used = byteLength(JSON.stringify({ ...output, items: [] })) + 40;
+  for (const item of output.items) {
+    used += byteLength(JSON.stringify(item)) + 1;
+    if (used > MAX_RESPONSE_BYTES) break;
+    items.push(item);
+  }
+  const out = { ...output, items };
+  if (items.length < output.items.length) out.itemsLogged = `${items.length} of ${output.items.length}`;
   return out;
 }
 
-function clip(value, max) {
+function clipText(text, maxBytes) {
+  let out = text.slice(0, maxBytes);
+  while (byteLength(out) > maxBytes) out = out.slice(0, Math.floor(out.length * 0.9));
+  return out;
+}
+
+/** JSON of value in at most maxBytes, whatever it contains. */
+function clip(value, maxBytes) {
   if (value === null || value === undefined) return null;
   const s = JSON.stringify(value);
-  return s.length > max ? JSON.stringify({ clipped: s.slice(0, max) }) : s;
+  if (byteLength(s) <= maxBytes) return s;
+  let end = Math.min(s.length, maxBytes);
+  let out = JSON.stringify({ clipped: s.slice(0, end) });
+  while (byteLength(out) > maxBytes) {
+    end = Math.floor(end * 0.75);
+    out = JSON.stringify({ clipped: s.slice(0, end) });
+  }
+  return out;
 }
 
 export function outcomeFor(audit, status) {
@@ -132,9 +162,16 @@ const INSERT = `INSERT INTO api_calls (ts, request_id, user_id, user_login, key_
     status, outcome, error, duration_ms, cached, query_text, result_count, ai_status, client, country, request_json, response_json)
   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)`;
 
-/** Writes the row in the background. Does nothing for calls that have no signed-in user. */
+/**
+ * Counts the call and writes its log row in the background. Does nothing for calls that have no signed-in user,
+ * or that our own limits blocked, so that a client hammering the limit costs no database writes.
+ */
 export function finishAudit(env, ctx, audit, status, durationMs) {
-  if (!audit.user || audit.skip || !audit.action || !env?.DB || !ctx?.waitUntil) return;
+  if (!audit.user || audit.limited || !env?.DB || !ctx?.waitUntil) return;
+  if (siteIsFull(env) && isAdmin(env, audit.user)) return; // the admin keeps working, without using the last writes
+  const log = !audit.skip && Boolean(audit.action);
+  if (!log && audit.uncounted) return;
+  const outcome = outcomeFor(audit, status);
   const args = [
     audit.ts,
     audit.requestId,
@@ -147,21 +184,32 @@ export function finishAudit(env, ctx, audit, status, durationMs) {
     audit.method,
     audit.path,
     status,
-    outcomeFor(audit, status),
-    audit.error ? `${audit.error.code}: ${audit.error.message}`.slice(0, MAX_ERROR_CHARS) : null,
+    outcome,
+    audit.error ? clipText(`${audit.error.code}: ${audit.error.message}`, MAX_ERROR_BYTES) : null,
     durationMs,
     audit.cached ? 1 : 0,
-    audit.query === null || audit.query === undefined ? null : String(audit.query).slice(0, 600),
+    audit.query === null || audit.query === undefined ? null : clipText(String(audit.query), MAX_QUERY_BYTES),
     audit.resultCount ?? null,
     audit.aiStatus,
     audit.client,
     audit.country,
-    clip(audit.input, MAX_REQUEST_CHARS),
+    clip(audit.input, MAX_REQUEST_BYTES),
     clip(audit.output, MAX_RESPONSE_BYTES),
   ];
   const write = withAppTables(env, async () => {
-    const res = await env.DB.prepare(INSERT).bind(...args).run();
-    const id = res.meta?.last_row_id;
+    const statements = [];
+    if (log) statements.push(env.DB.prepare(INSERT).bind(...args));
+    if (!audit.uncounted) {
+      statements.push(
+        countRequestStatement(env, audit.user.id, {
+          search: audit.action === "rest_search" || audit.action === "mcp_search",
+          failed: outcome !== "ok",
+          ai: audit.aiStatus === "ai" || audit.aiStatus === "ai_cached",
+        }),
+      );
+    }
+    const results = await env.DB.batch(statements);
+    const id = log ? results[0]?.meta?.last_row_id : null;
     if (id && id % PRUNE_EVERY === 0) await pruneCalls(env, id);
   }).catch((err) => console.error("API call log write failed", String(err)));
   ctx.waitUntil(write);

@@ -1,4 +1,4 @@
-// Tables for the admin console, the API call log and AI usage. Same SQL as migrations/0003_admin_ai.sql.
+// Tables for the admin console, the API call log, AI usage and daily limits. Same SQL as migrations 0003 and 0004.
 // They are created on demand when missing (for example a deploy that ran before the migration), so a
 // missing table can never break sign-in or search.
 
@@ -16,6 +16,10 @@ const SCHEMA = [
     cached INTEGER NOT NULL DEFAULT 0, query_text TEXT, result_count INTEGER, ai_status TEXT,
     client TEXT, country TEXT, request_json TEXT, response_json TEXT)`,
   "CREATE INDEX IF NOT EXISTS api_calls_user ON api_calls(user_id, id)",
+  `CREATE TABLE IF NOT EXISTS user_daily (
+    day TEXT NOT NULL, user_id INTEGER NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+    searches INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, ai_searches INTEGER NOT NULL DEFAULT 0,
+    neurons REAL NOT NULL DEFAULT 0, last_call INTEGER, PRIMARY KEY (day, user_id))`,
 ];
 
 let ready = null;

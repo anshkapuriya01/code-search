@@ -23,7 +23,7 @@ Code Search is a hosted MCP server and REST API. Every request needs an API key 
 ## Rate limits
 
 - GitHub's search API allows 30 requests a minute for a signed-in user (10 a minute for search/code, 10 a minute anonymous per IP) and at most 1,000 results per search. Each Code Search user searches on their own GitHub quota.
-- Code Search adds a 120 requests a minute per-account limit, a shared 10-minute cache, and answers 429 with Retry-After when GitHub's limit is reached.
+- Code Search adds per-account limits of 60 requests a minute and 1,500 a day, a private 10-minute cache per account, and answers 429 with Retry-After when a limit is reached (codes too_many_requests, daily_limit, site_daily_limit, rate_limited).
 - Details: /docs/#rate-limits
 
 ## Links

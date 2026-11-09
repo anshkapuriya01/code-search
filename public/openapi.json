@@ -55,7 +55,7 @@
     },
     "responses": {
       "Error": {
-        "description": "Error. 429 responses include a Retry-After header.",
+        "description": "Error. 429 responses include a Retry-After header. Codes: too_many_requests (60 a minute per account), daily_limit (1,500 a day per account), site_daily_limit, rate_limited (GitHub's own limit).",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
       }
     },
@@ -100,7 +100,7 @@
               "context": { "type": "array", "items": { "type": "string" }, "description": "Phrases about the user, not the project (e.g. 'for my business', 'for free'); not searched for." },
               "synonyms": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "description": "Other names accepted for a key term, when AI interpreted the request." },
               "interpretedBy": { "type": "string", "enum": ["ai", "rules"], "description": "Whether Workers AI or the rule-based parser interpreted the request." },
-              "aiStatus": { "type": "string", "description": "Why that interpreter was used: ai, ai_cached, skipped, no_binding, ai_disabled, budget_exhausted, ai_timeout, ai_error or ai_invalid." },
+              "aiStatus": { "type": "string", "description": "Why that interpreter was used: ai, ai_cached, skipped, no_binding, ai_disabled, budget_exhausted, user_budget_exhausted, ai_timeout, ai_error or ai_invalid." },
               "qualifiers": { "type": "array", "items": { "type": "string" } },
               "ignored": { "type": "array", "items": { "type": "string" } },
               "language": { "type": ["string", "null"] },

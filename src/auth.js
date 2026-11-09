@@ -2,7 +2,8 @@
 
 import { randomToken, sha256Hex, encryptText, safeEqual } from "./crypto.js";
 import { redirect, parseCookies, serializeCookie } from "./http.js";
-import { githubApiBase, githubOAuthBase, isAdmin, missingConfig, USER_AGENT } from "./config.js";
+import { githubApiBase, githubOAuthBase, githubTimeout, isAdmin, missingConfig, USER_AGENT } from "./config.js";
+import { utcDay } from "./limits.js";
 import { TtlCache } from "./memo.js";
 import { withAppTables } from "./schema.js";
 import { registrationOpenForDisplay, registrationState } from "./settings.js";
@@ -115,6 +116,7 @@ async function exchangeCode(env, code, redirectUri) {
   try {
     const res = await fetch(`${githubOAuthBase(env)}/login/oauth/access_token`, {
       method: "POST",
+      signal: githubTimeout(),
       headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT },
       body: JSON.stringify({
         client_id: env.GITHUB_CLIENT_ID,
@@ -138,6 +140,7 @@ async function exchangeCode(env, code, redirectUri) {
 async function fetchGitHubUser(env, token) {
   try {
     const res = await fetch(`${githubApiBase(env)}/user`, {
+      signal: githubTimeout(),
       headers: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -168,6 +171,7 @@ export async function revokeGitHubGrant(env, token) {
   try {
     const res = await fetch(`${githubApiBase(env)}/applications/${encodeURIComponent(env.GITHUB_CLIENT_ID)}/grant`, {
       method: "DELETE",
+      signal: githubTimeout(),
       headers: {
         Accept: "application/vnd.github+json",
         "Content-Type": "application/json",
@@ -279,20 +283,20 @@ export async function createApiKey(env, userId, rawName) {
   if (!name) return { status: 400, error: "Give the key a name." };
   if (name.length > MAX_KEY_NAME_LENGTH) return { status: 400, error: `Key names can be at most ${MAX_KEY_NAME_LENGTH} characters.` };
 
-  const { count } = await env.DB.prepare("SELECT COUNT(*) AS count FROM api_keys WHERE user_id = ?1").bind(userId).first();
-  if (count >= MAX_KEYS_PER_USER) {
-    return { status: 409, error: `You can have at most ${MAX_KEYS_PER_USER} keys. Revoke one first.` };
-  }
-
   const key = API_KEY_PREFIX + randomToken(32);
   const id = randomToken(12);
   const prefix = key.slice(0, API_KEY_PREFIX.length + 6);
   const now = Date.now();
-  await env.DB.prepare(
-    "INSERT INTO api_keys (id, user_id, name, key_hash, prefix, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  // The count and the insert are one statement, so simultaneous requests cannot pass the limit together.
+  const inserted = await env.DB.prepare(
+    `INSERT INTO api_keys (id, user_id, name, key_hash, prefix, created_at)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE (SELECT COUNT(*) FROM api_keys WHERE user_id = ?2) < ?7`,
   )
-    .bind(id, userId, name, await sha256Hex(key), prefix, now)
+    .bind(id, userId, name, await sha256Hex(key), prefix, now, MAX_KEYS_PER_USER)
     .run();
+  if ((inserted.meta?.changes ?? 0) === 0) {
+    return { status: 409, error: `You can have at most ${MAX_KEYS_PER_USER} keys. Revoke one first.` };
+  }
 
   return { key, record: { id, name, prefix, createdAt: now, lastUsedAt: null } };
 }
@@ -305,7 +309,13 @@ export async function deleteApiKey(env, userId, keyId) {
 
 export async function deleteAccount(env, userId) {
   forgetUser(userId);
-  await withAppTables(env, () => env.DB.prepare("DELETE FROM api_calls WHERE user_id = ?1").bind(userId).run());
+  await withAppTables(env, () =>
+    env.DB.batch([
+      env.DB.prepare("DELETE FROM api_calls WHERE user_id = ?1").bind(userId),
+      // Today's bare counter stays until the daily clean-up, so deleting an account cannot reset its daily limit.
+      env.DB.prepare("DELETE FROM user_daily WHERE user_id = ?1 AND day <> ?2").bind(userId, utcDay()),
+    ]),
+  );
   await env.DB.batch([
     env.DB.prepare("DELETE FROM key_usage WHERE user_id = ?1").bind(userId),
     env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?1").bind(userId),

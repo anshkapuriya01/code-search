@@ -52,10 +52,10 @@ browser for its live demo.
 | Concern | How it is handled |
 |---|---|
 | GitHub rate limits | Every user searches with their own token. 429s carry `Retry-After`; MCP tools tell the agent how long to wait. |
-| Repeated searches | Shared 10-minute cache (per-isolate memory, then Cloudflare's edge cache on the custom domain). |
-| Bursts of identical searches | Concurrent identical searches share one set of GitHub calls (request coalescing). Same for READMEs (cached 1 h). |
+| Repeated searches | 10-minute cache private to each account (per-isolate memory, then Cloudflare's edge cache on the custom domain). Nothing cached or in flight is shared between accounts. |
+| READMEs | Cached 1 h per account. At most 128 KB is read from GitHub and 20,000 characters kept, so one huge file cannot exhaust the Worker's memory. |
 | Database reads | API keys and sessions are cached in memory for 60 s (invalid keys 30 s). Revocation clears the local entry at once; other isolates follow within 60 s. Key "last used" is written at most once an hour. |
-| Runaway clients | 120 requests/min per account across REST and MCP (Cloudflare rate-limit binding, with an in-memory fallback). |
+| Runaway clients | Per account: 60 requests/min, 1,500 requests/day, 500 AI neurons/day. Whole site: 15,000 requests/day, which keeps database writes free for sign-ins. Anonymous: 60 failed calls/min per IP. The numbers are in `wrangler.toml`; the admin account is exempt. Add a Cloudflare WAF rate-limit rule too: a Worker cannot stop requests from counting toward Cloudflare's daily request quota. |
 | CPU | The heaviest search measured about 1.5 ms of CPU. |
 | Debugging | Every API response has `X-Request-Id` and `Server-Timing`. |
 | AI cost | At most `AI_DAILY_NEURONS` (9,000 of the 10,000 free) a day, counted from each response's token usage. A plan costs about 21 neurons on the larger model and 4 on the smaller. |
@@ -66,7 +66,7 @@ plan ($5/month) covers 10 million requests.
 
 ## Admin console
 
-`/admin/` is for the GitHub accounts listed by numeric id in `ADMIN_GITHUB_IDS` (`wrangler.toml`); it does not exist for anyone else.
+`/admin/` is for the single GitHub account whose numeric id is `ADMIN_GITHUB_ID` (`wrangler.toml`); it does not exist for anyone else. That account has no usage limits.
 
 - **Close new registrations** blocks accounts that do not exist yet and hides sign-up buttons site-wide. Existing users and admins can still sign in.
 - **Users** shows each account, when it joined, its last call and its totals.
@@ -81,7 +81,7 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-Migrations add `key_usage` and the admin, log and AI tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
+Migrations add `key_usage` and the admin, log, AI and daily-limit tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
 delete it from `wrangler.toml`; the Worker falls back to its in-memory limiter.
 
 First deploy from scratch: `npx wrangler login`, `npx wrangler d1 create starscout` (put the id in `wrangler.toml`),

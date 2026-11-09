@@ -164,7 +164,7 @@
 </section>
 <section class="doc-sec" id="errors" aria-labelledby="errors-h"><h2 id="errors-h"><a href="#errors">Errors</a></h2>
 <p>Errors are JSON: <code>{ "error": "…", "code": "…", "requestId": "…" }</code>, with <code>Retry-After</code> when waiting helps.</p>
-<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Status</th><th scope="col">code</th><th scope="col">What to do</th></tr></thead><tbody><tr><td>400</td><td><code>invalid_params</code>, <code>invalid_query</code></td><td>Fix the parameter named in <code>error</code>.</td></tr><tr><td>401</td><td><code>invalid_api_key</code>, <code>signin_required</code></td><td>Send a valid key. Revoked keys stop working within a minute.</td></tr><tr><td>401</td><td><code>github_reauth</code></td><td>The owner revoked GitHub access; they must sign in to Code Search again.</td></tr><tr><td>404</td><td><code>not_found</code></td><td>No such repository or README.</td></tr><tr><td>429</td><td><code>rate_limited</code></td><td>Your GitHub search limit was reached. Wait for <code>Retry-After</code> seconds.</td></tr><tr><td>429</td><td><code>too_many_requests</code></td><td>More than 120 requests a minute on one account. Slow down.</td></tr><tr><td>502</td><td><code>github_error</code>, <code>github_unreachable</code></td><td>GitHub failed; retry with backoff.</td></tr></tbody></table></div>
+<div class="doc-table-wrap"><table class="doc-table"><thead><tr><th scope="col">Status</th><th scope="col">code</th><th scope="col">What to do</th></tr></thead><tbody><tr><td>400</td><td><code>invalid_params</code>, <code>invalid_query</code></td><td>Fix the parameter named in <code>error</code>.</td></tr><tr><td>401</td><td><code>invalid_api_key</code>, <code>signin_required</code></td><td>Send a valid key. Revoked keys stop working within a minute.</td></tr><tr><td>401</td><td><code>github_reauth</code></td><td>The owner revoked GitHub access; they must sign in to Code Search again.</td></tr><tr><td>404</td><td><code>not_found</code></td><td>No such repository or README.</td></tr><tr><td>429</td><td><code>rate_limited</code></td><td>Your GitHub search limit was reached. Wait for <code>Retry-After</code> seconds.</td></tr><tr><td>429</td><td><code>too_many_requests</code></td><td>More than 60 requests a minute on one account. Slow down.</td></tr><tr><td>429</td><td><code>daily_limit</code></td><td>This account has used its 1,500 requests for today. Resets at 00:00 UTC; <code>Retry-After</code> says how long that is.</td></tr><tr><td>429</td><td><code>site_daily_limit</code></td><td>Code Search has reached its capacity for today. Resets at 00:00 UTC.</td></tr><tr><td>502</td><td><code>github_error</code>, <code>github_unreachable</code></td><td>GitHub failed; retry with backoff.</td></tr></tbody></table></div>
 </section>
 <section class="doc-sec" id="rate-limits" aria-labelledby="rate-limits-h"><p class="doc-kicker">Limits</p><h2 id="rate-limits-h"><a href="#rate-limits">GitHub rate limits</a></h2>
 <p>Code Search runs on GitHub's REST API, so GitHub's limits apply. These are GitHub's published numbers, checked on 4 November 2026.</p>
@@ -175,7 +175,7 @@
 <ul class="doc-list">
   <li><span><strong>Your own quota.</strong> Each user signs in with their own GitHub account, so searches use that user's 30 a minute. Users never share a limit.</span></li>
   <li><span><strong>Few calls per search.</strong> A search costs one GitHub call when ten or more projects match every word, and at most four when it has to widen.</span></li>
-  <li><span><strong>Cache and coalescing.</strong> Identical searches within ten minutes are answered from cache without touching your quota, and identical searches arriving at the same moment share one GitHub call.</span></li>
+  <li><span><strong>Cache.</strong> Your identical searches within ten minutes are answered from cache without touching your quota. The cache is private to your account.</span></li>
   <li><span><strong>Honest back-off.</strong> When GitHub says stop, Code Search answers <code>429 rate_limited</code> with <code>Retry-After</code> set from GitHub's reset time. It never retries in a loop on your behalf.</span></li>
   <li><span><strong>Graceful widening.</strong> If the strict pass found results but a widening call hits the limit, you get the strict results instead of an error.</span></li>
 </ul>
@@ -184,14 +184,16 @@
 </section>
 <section class="doc-sec" id="limits" aria-labelledby="limits-h"><h2 id="limits-h"><a href="#limits">Code Search limits</a></h2>
 <ul class="doc-list">
-  <li><span>120 requests a minute per account, across REST and MCP together. Over that you get <code>429 too_many_requests</code>.</span></li>
+  <li><span>60 requests a minute per account, across REST, MCP and the dashboard together. Over that you get <code>429 too_many_requests</code>.</span></li>
+  <li><span>1,500 requests a day per account, resetting at 00:00 UTC. Over that you get <code>429 daily_limit</code>. Dashboard pages, key revocation and account deletion keep working.</span></li>
+  <li><span>About 25 AI-understood searches a day per account. After that your searches still run, using the rule-based parser, until 00:00 UTC.</span></li>
   <li><span>Queries up to 500 characters; <code>per_page</code> up to 50.</span></li>
   <li><span>README text from 200 to 20,000 characters per call.</span></li>
   <li><span>Keyword-stuffed spam (descriptions over 1,000 characters) is removed from every result.</span></li>
 </ul>
 </section>
 <section class="doc-sec" id="caching" aria-labelledby="caching-h"><h2 id="caching-h"><a href="#caching">Caching</a></h2>
-<p>Searches are cached for ten minutes and READMEs for an hour, shared across users, first in the Worker's memory and then in Cloudflare's edge cache. Cached answers say <code>"cached": true</code> and cost no GitHub quota. Responses carry <code>Server-Timing</code> so you can see where time went.</p>
+<p>Searches are cached for ten minutes and READMEs for an hour, separately for each account, first in the Worker's memory and then in Cloudflare's edge cache. Cached answers say <code>"cached": true</code> and cost no GitHub quota. Responses carry <code>Server-Timing</code> so you can see where time went.</p>
 </section>
 <section class="doc-sec" id="usage" aria-labelledby="usage-h"><p class="doc-kicker">Account</p><h2 id="usage-h"><a href="#usage">Usage analytics</a></h2>
 <p>The dashboard's <a class="link" href="/app/#usage">Usage</a> tab shows when and how many times your keys called Code Search, so you can see which agent is busy, spot failures and check how close you run to GitHub's limit.</p>
@@ -225,7 +227,7 @@
           <dt>Code search API</dt><dd>10 / min</dd>
           <dt>Anonymous</dt><dd>10 / min</dd>
           <dt>Results cap</dt><dd>1,000</dd>
-          <dt>Code Search</dt><dd>120 / min</dd>
+          <dt>Code Search</dt><dd>60 / min, 1,500 / day</dd>
           <dt>Cache</dt><dd>10 min</dd>
         </dl>
         <a class="link" href="#rate-limits">Full details</a>

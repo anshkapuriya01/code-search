@@ -59,14 +59,15 @@ test("parseDays accepts 1, 7, 30, 90 only", () => {
   assert.equal(parseDays("abc"), null);
 });
 
-test("usageFor prunes old rows, maps rows and names revoked keys", async () => {
+test("usageFor only reads, maps rows and names revoked keys", async () => {
   const DB = fakeDb([
     { key_id: "k1", hour: 1, endpoint: "rest_search", calls: 3, ok: 2, errors: 0, limited: 1, cached: 1 },
     { key_id: "gone", hour: 2, endpoint: "mcp_readme", calls: 1, ok: 1, errors: 0, limited: 0, cached: 0 },
     { key_id: "web", hour: 2, endpoint: "rest_search", calls: 2, ok: 2, errors: 0, limited: 0, cached: 0 },
   ]);
   const out = await usageFor({ DB }, 7, 7, [{ id: "k1", name: "laptop", prefix: "cs_abc" }]);
-  assert.match(DB.calls[0].sql, /^DELETE FROM key_usage/);
+  assert.equal(DB.calls.length, 1);
+  assert.match(DB.calls[0].sql, /^SELECT/);
   assert.equal(out.days, 7);
   assert.deepEqual(out.keys.map((k) => [k.id, k.revoked]), [["k1", false], ["gone", true]]);
   assert.equal(out.rows.length, 3);

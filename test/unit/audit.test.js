@@ -8,7 +8,12 @@ const request = () => new Request("https://x.test/v1/search?q=a", { headers: { "
 function harness() {
   const inserted = [];
   const waits = [];
-  const env = { DB: { prepare: () => ({ bind: (...a) => ({ run: async () => (inserted.push(a), { meta: { last_row_id: 1 } }) }) }) } };
+  const env = {
+    DB: {
+      prepare: (sql) => ({ bind: (...a) => ({ sql, args: a }) }),
+      batch: async (statements) => statements.map((s) => (/INTO api_calls/.test(s.sql) && inserted.push(s.args), { meta: { last_row_id: 1 } })),
+    },
+  };
   return { env, inserted, waits, ctx: { waitUntil: (p) => waits.push(p) } };
 }
 
@@ -106,10 +111,48 @@ test("pruneCalls keeps the newest rows up to the cap", async () => {
   assert.deepEqual(bound, [100, 500, 10 * 86_400_000]);
 });
 
-test("isAdmin matches listed GitHub ids only", () => {
-  const env = { ADMIN_GITHUB_IDS: "5, 12" };
+test("isAdmin is true for exactly one numeric GitHub id", () => {
+  const env = { ADMIN_GITHUB_ID: "12" };
   assert.equal(isAdmin(env, { id: 12 }), true);
   assert.equal(isAdmin(env, { id: 1 }), false);
   assert.equal(isAdmin(env, null), false);
   assert.equal(isAdmin({}, { id: 12 }), false);
+  for (const bad of ["5, 12", "5,12", "", "abc", "12 13"]) assert.equal(isAdmin({ ADMIN_GITHUB_ID: bad }, { id: 12 }), false, bad);
+  assert.equal(isAdmin({ ADMIN_GITHUB_IDS: "12" }, { id: 12 }), false, "the old list setting grants nothing");
+});
+
+test("every logged column is capped in bytes, whatever the input contains", async () => {
+  const h = harness();
+  const a = startAudit(new Request("https://x.test/x", { headers: { "User-Agent": "x".repeat(900) } }), new URL("https://x.test/x"), "r7");
+  a.action = "rest_search";
+  a.query = "語".repeat(500);
+  a.input = { junk: '"語'.repeat(1500) };
+  a.error = { code: "e", message: "語".repeat(900) };
+  auditCaller(a, { user: { id: 1, login: "a" }, apiKey: null });
+  auditSearch(a, body(Array.from({ length: 50 }, (_, i) => ({ ...item(i), description: "語".repeat(120) }))));
+  finishAudit(h.env, h.ctx, a, 200, 1);
+  await Promise.all(h.waits);
+  const row = h.inserted[0];
+  const size = (v) => new TextEncoder().encode(v ?? "").length;
+  assert.ok(size(row[12]) <= 300 && size(row[15]) <= 600 && size(row[18]) <= 200 && size(row[20]) <= 1000 && size(row[21]) <= MAX_RESPONSE_BYTES, JSON.stringify(row.map((c) => size(String(c)))));
+  assert.doesNotThrow(() => (JSON.parse(row[20]), JSON.parse(row[21])));
+  const largest = row.reduce((sum, c) => sum + size(typeof c === "string" ? c : ""), 0);
+  assert.ok(largest * MAX_ROWS < 300 * 1024 * 1024, `largest row ${largest} bytes`);
+});
+
+test("a call blocked by our own limits writes nothing, and uncounted reads add no total", async () => {
+  const h = harness();
+  const a = startAudit(request(), new URL("https://x.test/x"), "r8");
+  a.action = "x";
+  auditCaller(a, { user: { id: 1, login: "a" }, apiKey: null });
+  auditError(a, Object.assign(new Error("slow"), { ownLimit: true, status: 429 }));
+  finishAudit(h.env, h.ctx, a, 429, 1);
+  assert.equal(h.waits.length, 0);
+  const b = startAudit(request(), new URL("https://x.test/x"), "r9");
+  b.action = "GET /api/keys";
+  auditCaller(b, { user: { id: 1, login: "a" }, apiKey: null });
+  b.skip = true;
+  b.uncounted = true;
+  finishAudit(h.env, h.ctx, b, 200, 1);
+  assert.equal(h.waits.length, 0);
 });

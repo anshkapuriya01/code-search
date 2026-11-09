@@ -124,7 +124,7 @@ async function init() {
   const params = new URLSearchParams(location.search);
   const err = params.get("error");
   if (err) {
-    flash(LOGIN_ERRORS[err] || "Sign-in failed. Please try again.");
+    flash((Object.hasOwn(LOGIN_ERRORS, err) && LOGIN_ERRORS[err]) || "Sign-in failed. Please try again.");
     history.replaceState(null, "", location.pathname + location.hash);
   }
   let isAdmin = false;

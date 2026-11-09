@@ -312,7 +312,7 @@ sort=stars order=desc</pre></div>
           </div>
           <div class="meter-card rise" data-i="1" id="meter">
             <div class="meter-head"><h3>Your search quota, minute by minute</h3><span class="meter-sim">Simulation</span></div>
-            <p>Each square is one GitHub search call this minute. Repeats come from the shared cache and cost nothing.</p>
+            <p>Each square is one GitHub search call this minute. Your repeats come from your own cache and cost nothing.</p>
             <div class="meter" id="meter-cells" aria-hidden="true"></div>
             <div class="meter-stats" aria-live="polite"><span><b id="m-left">30</b> of 30 left</span><span>resets in <b id="m-reset">60</b>s</span><span>cache hits <b id="m-hits">0</b></span></div>
             <div class="meter-actions">
@@ -326,7 +326,7 @@ sort=stars order=desc</pre></div>
         <div class="stats">
           <div class="stat rise"><p class="big-num"><span data-count="30">30</span><small>/min</small></p><b>Yours alone</b><p>Everyone searches on their own GitHub token, so one heavy user never slows anyone else down.</p></div>
           <div class="stat rise" data-i="1"><p class="big-num"><span data-count="1">1</span><small>call</small></p><b>For most searches</b><p>Ten or more strong matches take one GitHub call. Harder searches take up to four.</p></div>
-          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Shared cache</b><p>Identical searches are answered from cache, and identical searches arriving together share one call.</p></div>
+          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Private cache</b><p>Your repeat searches are answered from a cache only your account can use.</p></div>
           <div class="stat rise" data-i="3"><p class="big-num"><span data-count="429">429</span></p><b>Clear back-off</b><p>At the limit you get Retry-After with the exact wait, and MCP tools tell your agent how long to pause.</p></div>
         </div>
         <div class="band rise">
@@ -334,7 +334,7 @@ sort=stars order=desc</pre></div>
           <div class="band-copy">
             <h3>Every user gets their own gate.</h3>
             <p>Send everyone through one shared token and the whole service gets 30 searches a minute between all its users. Code Search signs each person in with their own GitHub account instead, so your 30 a minute are yours.</p>
-            <p>On top of GitHub's limit, Code Search allows 120 requests a minute per account across REST and MCP, so a runaway script can't burn through your quota in a loop.</p>
+            <p>On top of GitHub's limit, Code Search allows 60 requests a minute and 1,500 a day per account across REST, MCP and the dashboard, so a runaway script can't burn through your quota in a loop.</p>
             <p><a class="link" href="/docs/#rate-limits">Read the full rate-limit guide</a></p>
           </div>
         </div>
@@ -455,8 +455,8 @@ sort=stars order=desc</pre></div>
                 <li class="incl">Everything in Agent pass</li>
                 <li>REST API for search and READMEs</li>
                 <li>OpenAPI 3.1 description and llms.txt</li>
-                <li>120 requests a minute per account</li>
-                <li>Shared ten-minute cache and request coalescing</li>
+                <li>60 requests a minute and 1,500 a day per account</li>
+                <li>Private ten-minute cache for your account</li>
                 <li>X-Request-Id and Server-Timing on every response</li>
               </ul>
               <a class="btn btn-big btn-wide btn-ticket" href="/docs/#rest">Read the API docs</a>

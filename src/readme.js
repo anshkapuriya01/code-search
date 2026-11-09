@@ -1,16 +1,18 @@
 // Fetches a repository's README as plain text so an agent can judge a search result.
 
-import { githubApiBase, USER_AGENT } from "./config.js";
-import { GitHubError } from "./search.js";
+import { githubApiBase, githubTimeout, USER_AGENT } from "./config.js";
+import { GitHubError, isGitHubRateLimit } from "./search.js";
+import { readStream } from "./http.js";
 import { TtlCache } from "./memo.js";
 
 export const DEFAULT_README_CHARS = 6000;
 export const MAX_README_CHARS = 20000;
+export const MAX_README_BYTES = 128 * 1024; // never reads more than this from GitHub
 const README_TTL_MS = 60 * 60 * 1000;
 const REPO_RE = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]{1,100})$/;
 
-const cache = new TtlCache(500); // full text per repo, public data
-const inflight = new Map();
+// Holds at most MAX_README_CHARS per entry, so 200 entries stay around 8 MB of the Worker's 128 MB.
+const cache = new TtlCache(200);
 
 /** "owner/name" (also accepts a github.com URL). Returns { owner, name } or null. */
 export function parseRepo(input) {
@@ -30,34 +32,33 @@ export function parseMaxChars(raw) {
   return n;
 }
 
-/** Returns { repo, text, truncated, totalChars, url }. */
-export async function getReadme({ owner, name }, maxChars, { token, env }) {
-  const key = `${owner}/${name}`.toLowerCase();
+/**
+ * Returns { repo, text, truncated, totalChars, url }. Cached per account, so nothing one user fetched or failed
+ * to fetch reaches another. totalChars is a lower bound for READMEs longer than GitHub bytes read.
+ */
+export async function getReadme({ owner, name }, maxChars, { token, env, userId }) {
+  const key = `${userId}:${owner}/${name}`.toLowerCase();
   let full = cache.get(key);
   if (full === undefined) {
-    let p = inflight.get(key);
-    if (!p) {
-      p = fetchReadme(owner, name, token, env).finally(() => inflight.delete(key));
-      inflight.set(key, p);
-    }
-    full = await p;
+    full = await fetchReadme(owner, name, token, env);
     cache.set(key, full, README_TTL_MS);
   }
-  const text = full.text.length > maxChars ? full.text.slice(0, maxChars) : full.text;
   return {
     repo: `${owner}/${name}`,
     url: full.url,
-    text,
-    truncated: full.text.length > maxChars,
-    totalChars: full.text.length,
+    text: full.text.slice(0, maxChars),
+    truncated: full.cut || full.totalChars > maxChars,
+    totalChars: full.totalChars,
   };
 }
 
 async function fetchReadme(owner, name, token, env) {
   const url = `${githubApiBase(env)}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/readme`;
   let res;
+  let body;
   try {
     res = await fetch(url, {
+      signal: githubTimeout(),
       headers: {
         Accept: "application/vnd.github.raw+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -65,12 +66,14 @@ async function fetchReadme(owner, name, token, env) {
         Authorization: `Bearer ${token}`,
       },
     });
+    body = await readStream(res.body, res.ok ? MAX_README_BYTES : 4096);
   } catch (err) {
     console.error("README request failed", String(err));
+    if (err?.name === "TimeoutError") throw new GitHubError(504, "GitHub took too long to answer. Please try again.", { code: "github_timeout" });
     throw new GitHubError(502, "Could not reach GitHub. Please try again.", { code: "github_unreachable" });
   }
   if (res.ok) {
-    return { text: await res.text(), url: `https://github.com/${owner}/${name}#readme` };
+    return { text: body.text.slice(0, MAX_README_CHARS), totalChars: body.text.length, cut: body.cut, url: `https://github.com/${owner}/${name}#readme` };
   }
   if (res.status === 404) {
     throw new GitHubError(404, `No README found for ${owner}/${name} (or the repository does not exist).`, {
@@ -82,8 +85,7 @@ async function fetchReadme(owner, name, token, env) {
       code: "github_reauth",
     });
   }
-  const remaining = res.headers.get("x-ratelimit-remaining");
-  if (res.status === 429 || (res.status === 403 && remaining === "0")) {
+  if (isGitHubRateLimit(res, body.text)) {
     const reset = Number(res.headers.get("x-ratelimit-reset"));
     const retryAfter = Number(res.headers.get("retry-after")) || (reset ? Math.max(1, reset - Math.floor(Date.now() / 1000)) : 60);
     throw new GitHubError(429, `GitHub's rate limit for your account was reached. Try again in ${retryAfter} seconds.`, {

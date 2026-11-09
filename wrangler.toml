@@ -27,22 +27,39 @@ database_name = "starscout"
 database_id = "cd1eef6a-f9bd-476d-ba51-6f533b6fa06b"
 migrations_dir = "migrations"
 
-# Per-account request limit (120/min) shared by REST and MCP. If your plan does not support this binding,
-# delete this block: the Worker then falls back to a per-isolate in-memory limiter.
+# Per-account request limit (60/min) shared by REST, MCP and the dashboard. The admin account is exempt. If your
+# plan does not support these bindings, delete both blocks: the Worker falls back to per-isolate in-memory limiters.
 [[ratelimits]]
 name = "RATE_LIMITER"
 namespace_id = "7311"
-simple = { limit = 120, period = 60 }
+simple = { limit = 60, period = 60 }
+
+# Per-IP limit (60/min) for calls with no valid sign-in or key.
+[[ratelimits]]
+name = "ANON_LIMITER"
+namespace_id = "7312"
+simple = { limit = 60, period = 60 }
+
+# Daily clean-up: log, usage and session retention (src/maintenance.js).
+[triggers]
+crons = ["30 0 * * *"]
 
 # Workers AI interprets search requests. The free allocation is 10,000 neurons a day; see AI_DAILY_NEURONS below.
 [ai]
 binding = "AI"
 
 [vars]
-# Numeric GitHub user ids (comma separated) allowed into the admin console at /admin/.
-ADMIN_GITHUB_IDS = "185783357"
-# Daily Workers AI limit in neurons. Above it, searches use the rule-based parser. 0 turns AI off.
+# The one admin account, by numeric GitHub id. It has the admin console at /admin/ and no usage limits.
+# Must be a single number: anything else means there is no admin.
+ADMIN_GITHUB_ID = "185783357"
+# Daily Workers AI limit in neurons, for the whole site. Above it, searches use the rule-based parser. 0 turns AI off.
 AI_DAILY_NEURONS = "9000"
+# Daily Workers AI limit in neurons for one account, so no account can use the site's whole budget.
+AI_USER_DAILY_NEURONS = "500"
+# Requests one account may make per UTC day.
+USER_DAILY_REQUESTS = "1500"
+# Requests all accounts together may make per UTC day. Keeps database writes free for sign-ins and key changes.
+SITE_DAILY_REQUESTS = "15000"
 
 [observability]
 enabled = true

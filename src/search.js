@@ -12,16 +12,17 @@
 
 import { buildQuery, rankResults, simplifyRepo, isLikelySpam } from "../public/lib/query.js";
 import { sha256Hex } from "./crypto.js";
-import { githubApiBase, USER_AGENT } from "./config.js";
+import { githubApiBase, githubTimeout, USER_AGENT } from "./config.js";
 
 export const STRICT_MIN_RESULTS = 10;
 export const POOL_CANDIDATES = 100; // GitHub's maximum per_page
 export const ALT_CANDIDATES = 50;
 export const BROAD_CANDIDATES = 50;
 export const MAX_RESULTS = 100; // ranked results kept per search (and paged through)
-const CACHE_VERSION = 3; // bump when the cached shape or ranking changes
+const CACHE_VERSION = 4; // bump when the cached shape or ranking changes
 const CACHE_TTL_SECONDS = 600;
-const MEMORY_CACHE_MAX = 100;
+const MEMORY_CACHE_MAX = 60;
+const WIDENING_DEADLINE_MS = 15_000; // no extra GitHub calls after this; what was found so far is returned
 
 export class GitHubError extends Error {
   constructor(status, message, extra = {}) {
@@ -31,11 +32,21 @@ export class GitHubError extends Error {
   }
 }
 
-/** Search with caching. Results contain only public data, so the cache is shared by all users. */
-export async function searchRepositories(opts, { token, env, ctx, origin }) {
+/** True when GitHub's answer means a rate limit, including its secondary limits. */
+export function isGitHubRateLimit(res, message) {
+  if (res.status === 429) return true;
+  return res.status === 403 && (res.headers.get("x-ratelimit-remaining") === "0" || res.headers.has("retry-after") || /rate limit/i.test(message));
+}
+
+/**
+ * Search with caching. The cache is private to each account (a query such as user:@me means something different
+ * for each person), and nothing in flight is shared, so one user's results or GitHub errors never reach another.
+ */
+export async function searchRepositories(opts, { token, env, ctx, origin, userId }) {
   const key = await sha256Hex(
     JSON.stringify([
       CACHE_VERSION,
+      userId ?? null,
       opts.parsed.keywords,
       opts.parsed.core,
       opts.parsed.synonyms ?? null,
@@ -48,22 +59,14 @@ export async function searchRepositories(opts, { token, env, ctx, origin }) {
   );
 
   let full = await cacheGet(key, origin);
-  let cached = Boolean(full);
+  const cached = Boolean(full);
   let rateLimit = null;
   if (!full) {
-    // Identical searches arriving at the same time share one set of GitHub calls.
-    let pending = inflight.get(key);
-    const leader = !pending;
-    if (leader) {
-      pending = runSearch(opts, token, env).finally(() => inflight.delete(key));
-      inflight.set(key, pending);
-    }
-    const { rateLimit: rl, ...result } = await pending;
+    const { rateLimit: rl, ...result } = await runSearch(opts, token, env);
     full = result;
-    cached = !leader;
-    if (leader) {
-      rateLimit = rl;
-      const put = cachePut(key, origin, result);
+    rateLimit = rl;
+    if (!result.incomplete) {
+      const put = cachePut(key, origin, result); // a partial answer is not worth keeping for ten minutes
       if (ctx?.waitUntil) ctx.waitUntil(put);
       else await put;
     }
@@ -84,8 +87,6 @@ export async function searchRepositories(opts, { token, env, ctx, origin }) {
     rateLimit,
   };
 }
-
-const inflight = new Map();
 
 /** Every GitHub query for a request. Throws QueryError if one is too long, before any GitHub call. */
 export function buildQueries(parsed, filters) {
@@ -112,8 +113,11 @@ async function runSearch({ parsed, minStars, language, includeArchived }, token,
   let mode = "strict";
   const trusted = new Set(strict.items.map((r) => r.id));
   const candidates = [...strict.items];
+  const scores = new Map(); // ranking runs twice over mostly the same repositories; score each only once
+  const deadline = Date.now() + WIDENING_DEADLINE_MS;
 
   const fetchMore = async (q, sortByStars, perPage) => {
+    if (Date.now() > deadline) throw new GitHubError(504, "GitHub took too long to answer. Please try again.", { code: "github_timeout" });
     const res = await githubSearch(q, { sortByStars, perPage }, token, env);
     candidates.push(...res.items);
     rateLimit = res.rateLimit;
@@ -128,7 +132,7 @@ async function runSearch({ parsed, minStars, language, includeArchived }, token,
     for (const altQuery of altQueries) await fetchMore(altQuery, true, ALT_CANDIDATES);
     // "any" uses GitHub's best-match order; sorted by stars it would only return huge repos that
     // happen to contain one of the words.
-    if (anyQuery && rankResults(candidates, parsed, { trusted }).items.length < STRICT_MIN_RESULTS) {
+    if (anyQuery && rankResults(candidates, parsed, { trusted, scores }).items.length < STRICT_MIN_RESULTS) {
       await fetchMore(anyQuery, false, BROAD_CANDIDATES);
     }
   } catch (err) {
@@ -137,7 +141,7 @@ async function runSearch({ parsed, minStars, language, includeArchived }, token,
     incomplete = true;
   }
 
-  const { level, items } = rankResults(candidates, parsed, { trusted });
+  const { level, items } = rankResults(candidates, parsed, { trusted, scores });
   return {
     mode,
     matchLevel: level,
@@ -158,8 +162,10 @@ async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
   url.searchParams.set("per_page", String(perPage));
 
   let res;
+  let body;
   try {
     res = await fetch(url, {
+      signal: githubTimeout(),
       headers: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -167,8 +173,13 @@ async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
         Authorization: `Bearer ${token}`,
       },
     });
+    body = await res.json().catch((err) => {
+      if (err?.name === "TimeoutError") throw err;
+      return null;
+    });
   } catch (err) {
     console.error("GitHub search request failed", String(err));
+    if (err?.name === "TimeoutError") throw new GitHubError(504, "GitHub took too long to answer. Please try again.", { code: "github_timeout" });
     throw new GitHubError(502, "Could not reach GitHub. Please try again.", { code: "github_unreachable" });
   }
 
@@ -177,9 +188,9 @@ async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
     remaining: toNumber(res.headers.get("x-ratelimit-remaining")),
     reset: toNumber(res.headers.get("x-ratelimit-reset")),
   };
-  const body = await res.json().catch(() => null);
 
   if (res.ok) {
+    if (!body) throw new GitHubError(502, "GitHub returned an unreadable answer. Please try again.", { code: "github_error" });
     return {
       total: Number(body?.total_count) || 0,
       incomplete: Boolean(body?.incomplete_results),
@@ -196,7 +207,7 @@ async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
 
   const message = String(body?.message ?? "");
   const retryAfterHeader = toNumber(res.headers.get("retry-after"));
-  if (res.status === 429 || (res.status === 403 && (rateLimit.remaining === 0 || retryAfterHeader !== null || /rate limit/i.test(message)))) {
+  if (isGitHubRateLimit(res, message)) {
     const retryAfter =
       retryAfterHeader ?? (rateLimit.reset ? Math.max(1, rateLimit.reset - Math.floor(Date.now() / 1000)) : 60);
     throw new GitHubError(429, `GitHub's rate limit for your account was reached. Try again in ${retryAfter} seconds.`, {

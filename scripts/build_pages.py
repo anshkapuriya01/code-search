@@ -456,7 +456,7 @@ sort=stars order=desc</pre></div>
           </div>
           <div class="meter-card rise" data-i="1" id="meter">
             <div class="meter-head"><h3>Your search quota, minute by minute</h3><span class="meter-sim">Simulation</span></div>
-            <p>Each square is one GitHub search call this minute. Repeats come from the shared cache and cost nothing.</p>
+            <p>Each square is one GitHub search call this minute. Your repeats come from your own cache and cost nothing.</p>
             <div class="meter" id="meter-cells" aria-hidden="true"></div>
             <div class="meter-stats" aria-live="polite"><span><b id="m-left">30</b> of 30 left</span><span>resets in <b id="m-reset">60</b>s</span><span>cache hits <b id="m-hits">0</b></span></div>
             <div class="meter-actions">
@@ -470,7 +470,7 @@ sort=stars order=desc</pre></div>
         <div class="stats">
           <div class="stat rise"><p class="big-num"><span data-count="30">30</span><small>/min</small></p><b>Yours alone</b><p>Everyone searches on their own GitHub token, so one heavy user never slows anyone else down.</p></div>
           <div class="stat rise" data-i="1"><p class="big-num"><span data-count="1">1</span><small>call</small></p><b>For most searches</b><p>Ten or more strong matches take one GitHub call. Harder searches take up to four.</p></div>
-          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Shared cache</b><p>Identical searches are answered from cache, and identical searches arriving together share one call.</p></div>
+          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Private cache</b><p>Your repeat searches are answered from a cache only your account can use.</p></div>
           <div class="stat rise" data-i="3"><p class="big-num"><span data-count="429">429</span></p><b>Clear back-off</b><p>At the limit you get Retry-After with the exact wait, and MCP tools tell your agent how long to pause.</p></div>
         </div>
         <div class="band rise">
@@ -478,7 +478,7 @@ sort=stars order=desc</pre></div>
           <div class="band-copy">
             <h3>Every user gets their own gate.</h3>
             <p>Send everyone through one shared token and the whole service gets 30 searches a minute between all its users. Code Search signs each person in with their own GitHub account instead, so your 30 a minute are yours.</p>
-            <p>On top of GitHub's limit, Code Search allows 120 requests a minute per account across REST and MCP, so a runaway script can't burn through your quota in a loop.</p>
+            <p>On top of GitHub's limit, Code Search allows 60 requests a minute and 1,500 a day per account across REST, MCP and the dashboard, so a runaway script can't burn through your quota in a loop.</p>
             <p><a class="link" href="/docs/#rate-limits">Read the full rate-limit guide</a></p>
           </div>
         </div>
@@ -599,8 +599,8 @@ sort=stars order=desc</pre></div>
                 <li class="incl">Everything in Agent pass</li>
                 <li>REST API for search and READMEs</li>
                 <li>OpenAPI 3.1 description and llms.txt</li>
-                <li>120 requests a minute per account</li>
-                <li>Shared ten-minute cache and request coalescing</li>
+                <li>60 requests a minute and 1,500 a day per account</li>
+                <li>Private ten-minute cache for your account</li>
                 <li>X-Request-Id and Server-Timing on every response</li>
               </ul>
               <a class="btn btn-big btn-wide btn-ticket" href="/docs/#rest">Read the API docs</a>
@@ -793,7 +793,9 @@ def docs():
     ["401", "<code>github_reauth</code>", "The owner revoked GitHub access; they must sign in to Code Search again."],
     ["404", "<code>not_found</code>", "No such repository or README."],
     ["429", "<code>rate_limited</code>", "Your GitHub search limit was reached. Wait for <code>Retry-After</code> seconds."],
-    ["429", "<code>too_many_requests</code>", "More than 120 requests a minute on one account. Slow down."],
+    ["429", "<code>too_many_requests</code>", "More than 60 requests a minute on one account. Slow down."],
+    ["429", "<code>daily_limit</code>", "This account has used its 1,500 requests for today. Resets at 00:00 UTC; <code>Retry-After</code> says how long that is."],
+    ["429", "<code>site_daily_limit</code>", "Code Search has reached its capacity for today. Resets at 00:00 UTC."],
     ["502", "<code>github_error</code>, <code>github_unreachable</code>", "GitHub failed; retry with backoff."],
 ])}""")
     main += sec("rate-limits", "GitHub rate limits", f"""<p>Code Search runs on GitHub's REST API, so GitHub's limits apply. These are GitHub's published numbers, checked on 4 November 2026.</p>
@@ -814,19 +816,21 @@ def docs():
 <ul class="doc-list">
   <li><span><strong>Your own quota.</strong> Each user signs in with their own GitHub account, so searches use that user's 30 a minute. Users never share a limit.</span></li>
   <li><span><strong>Few calls per search.</strong> A search costs one GitHub call when ten or more projects match every word, and at most four when it has to widen.</span></li>
-  <li><span><strong>Cache and coalescing.</strong> Identical searches within ten minutes are answered from cache without touching your quota, and identical searches arriving at the same moment share one GitHub call.</span></li>
+  <li><span><strong>Cache.</strong> Your identical searches within ten minutes are answered from cache without touching your quota. The cache is private to your account.</span></li>
   <li><span><strong>Honest back-off.</strong> When GitHub says stop, Code Search answers <code>429 rate_limited</code> with <code>Retry-After</code> set from GitHub's reset time. It never retries in a loop on your behalf.</span></li>
   <li><span><strong>Graceful widening.</strong> If the strict pass found results but a widening call hits the limit, you get the strict results instead of an error.</span></li>
 </ul>
 <p class="callout">In practice that means roughly 7 to 30 fresh searches a minute per user, depending on how many need widening, plus unlimited repeats from cache.</p>
 <p>Sources: <a class="link" href="https://docs.github.com/en/rest/search/search#rate-limit" rel="noopener">REST API endpoints for search</a>, <a class="link" href="https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api" rel="noopener">Rate limits for the REST API</a>.</p>""", "Limits")
     main += sec("limits", "Code Search limits", """<ul class="doc-list">
-  <li><span>120 requests a minute per account, across REST and MCP together. Over that you get <code>429 too_many_requests</code>.</span></li>
+  <li><span>60 requests a minute per account, across REST, MCP and the dashboard together. Over that you get <code>429 too_many_requests</code>.</span></li>
+  <li><span>1,500 requests a day per account, resetting at 00:00 UTC. Over that you get <code>429 daily_limit</code>. Dashboard pages, key revocation and account deletion keep working.</span></li>
+  <li><span>About 25 AI-understood searches a day per account. After that your searches still run, using the rule-based parser, until 00:00 UTC.</span></li>
   <li><span>Queries up to 500 characters; <code>per_page</code> up to 50.</span></li>
   <li><span>README text from 200 to 20,000 characters per call.</span></li>
   <li><span>Keyword-stuffed spam (descriptions over 1,000 characters) is removed from every result.</span></li>
 </ul>""")
-    main += sec("caching", "Caching", """<p>Searches are cached for ten minutes and READMEs for an hour, shared across users, first in the Worker's memory and then in Cloudflare's edge cache. Cached answers say <code>"cached": true</code> and cost no GitHub quota. Responses carry <code>Server-Timing</code> so you can see where time went.</p>""")
+    main += sec("caching", "Caching", """<p>Searches are cached for ten minutes and READMEs for an hour, separately for each account, first in the Worker's memory and then in Cloudflare's edge cache. Cached answers say <code>"cached": true</code> and cost no GitHub quota. Responses carry <code>Server-Timing</code> so you can see where time went.</p>""")
     main += sec("usage", "Usage analytics", f"""<p>The dashboard's <a class="link" href="/app/#usage">Usage</a> tab shows when and how many times your keys called Code Search, so you can see which agent is busy, spot failures and check how close you run to GitHub's limit.</p>
 {table(["View", "What it shows"], [
     ["Totals", "API calls, success rate, rate-limited calls (429), share answered from cache, the busiest hour or day and the last call."],
@@ -866,7 +870,7 @@ def docs():
           <dt>Code search API</dt><dd>10 / min</dd>
           <dt>Anonymous</dt><dd>10 / min</dd>
           <dt>Results cap</dt><dd>1,000</dd>
-          <dt>Code Search</dt><dd>120 / min</dd>
+          <dt>Code Search</dt><dd>60 / min, 1,500 / day</dd>
           <dt>Cache</dt><dd>10 min</dd>
         </dl>
         <a class="link" href="#rate-limits">Full details</a>
@@ -907,13 +911,14 @@ def simple_page(path, title, desc, inner, js="/js/page.js", robots=None, cls="pa
 PRIVACY = """<article class="prose">
   <p class="doc-kicker">Legal</p>
   <h1>Privacy</h1>
-  <p>Last updated 9 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
+  <p>Last updated 10 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
   <h2>What we store</h2>
   <ul>
     <li>Your GitHub user id, login, display name and avatar URL, so the dashboard can show who is signed in.</li>
     <li>The GitHub access token GitHub gives us when you sign in, encrypted with AES-256-GCM. It has no scopes, so it can only read public data. We use it only to run your searches and README reads on your own GitHub quota.</li>
     <li>SHA-256 hashes of your session cookie and your API keys, plus each key's name, first characters, creation date and when it was last used.</li>
     <li>Hourly counts of your API calls per key and endpoint (how many, and whether they succeeded, were rate-limited or came from cache), kept for 90 days for the Usage tab.</li>
+    <li>Your total number of requests, searches and AI use per day (no search text), kept for 31 days to enforce the daily limits.</li>
     <li>A log of each call made with your account: when it happened, which key or the dashboard made it, what you searched for or which README you asked for, the results returned (repository names, stars, language, licence and a short description, or the first 1,000 characters of a README), whether it worked, your browser or agent's User-Agent and your country. We also record sign-ins and API key changes. The log is kept for up to 90 days and is visible to the people who run Code Search, so they can operate the service and stop abuse. It never contains your API keys, tokens or IP address.</li>
   </ul>
   <h2>What we do not store</h2>
@@ -929,7 +934,7 @@ PRIVACY = """<article class="prose">
   <h2>Cookies</h2>
   <p>One sign-in cookie (HttpOnly, SameSite=Lax) and a short-lived cookie that protects the sign-in step. No advertising or analytics cookies.</p>
   <h2>Deleting your data</h2>
-  <p>Delete your account from the dashboard under Account. Your keys, sessions, token, usage counts and call log are removed and Code Search's access to your GitHub account is revoked in the same step.</p>
+  <p>Delete your account from the dashboard under Account. Your keys, sessions, token, usage counts and call log are removed and Code Search's access to your GitHub account is revoked in the same step. Only today's request counter stays, with no search text, until the next daily clean-up, so deleting an account cannot reset a daily limit.</p>
 </article>"""
 
 TERMS = """<article class="prose">
@@ -940,7 +945,7 @@ TERMS = """<article class="prose">
   <p>Code Search is free. It searches public GitHub repositories on your behalf, using your own GitHub account's quota, and returns the results through the dashboard, the REST API and the MCP server.</p>
   <h2>Fair use</h2>
   <ul>
-    <li>Keep to the published limits: GitHub's search limit of 30 requests a minute and Code Search's 120 requests a minute per account.</li>
+    <li>Keep to the published limits: GitHub's search limit of 30 requests a minute and Code Search's 60 requests a minute and 1,500 a day per account.</li>
     <li>Do not try to get around rate limits, for example by creating many GitHub accounts.</li>
     <li>Follow <a class="link" href="https://docs.github.com/en/site-policy/github-terms/github-terms-of-service" rel="noopener">GitHub's Terms of Service</a>, which also apply to every search.</li>
     <li>Keep your API keys secret. You are responsible for what is done with them; revoke a key the moment you think it leaked.</li>

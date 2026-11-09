@@ -53,13 +53,14 @@
 <article class="prose">
   <p class="doc-kicker">Legal</p>
   <h1>Privacy</h1>
-  <p>Last updated 9 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
+  <p>Last updated 10 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
   <h2>What we store</h2>
   <ul>
     <li>Your GitHub user id, login, display name and avatar URL, so the dashboard can show who is signed in.</li>
     <li>The GitHub access token GitHub gives us when you sign in, encrypted with AES-256-GCM. It has no scopes, so it can only read public data. We use it only to run your searches and README reads on your own GitHub quota.</li>
     <li>SHA-256 hashes of your session cookie and your API keys, plus each key's name, first characters, creation date and when it was last used.</li>
     <li>Hourly counts of your API calls per key and endpoint (how many, and whether they succeeded, were rate-limited or came from cache), kept for 90 days for the Usage tab.</li>
+    <li>Your total number of requests, searches and AI use per day (no search text), kept for 31 days to enforce the daily limits.</li>
     <li>A log of each call made with your account: when it happened, which key or the dashboard made it, what you searched for or which README you asked for, the results returned (repository names, stars, language, licence and a short description, or the first 1,000 characters of a README), whether it worked, your browser or agent's User-Agent and your country. We also record sign-ins and API key changes. The log is kept for up to 90 days and is visible to the people who run Code Search, so they can operate the service and stop abuse. It never contains your API keys, tokens or IP address.</li>
   </ul>
   <h2>What we do not store</h2>
@@ -75,7 +76,7 @@
   <h2>Cookies</h2>
   <p>One sign-in cookie (HttpOnly, SameSite=Lax) and a short-lived cookie that protects the sign-in step. No advertising or analytics cookies.</p>
   <h2>Deleting your data</h2>
-  <p>Delete your account from the dashboard under Account. Your keys, sessions, token, usage counts and call log are removed and Code Search's access to your GitHub account is revoked in the same step.</p>
+  <p>Delete your account from the dashboard under Account. Your keys, sessions, token, usage counts and call log are removed and Code Search's access to your GitHub account is revoked in the same step. Only today's request counter stays, with no search text, until the next daily clean-up, so deleting an account cannot reset a daily limit.</p>
 </article>
   </main>
   <div class="frame">

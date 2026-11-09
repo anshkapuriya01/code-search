@@ -7,18 +7,9 @@ import { searchRepositories } from "./search.js";
 import { interpretQuery } from "./ai.js";
 import { getReadme, parseRepo, parseMaxChars } from "./readme.js";
 import { getSession, getApiKeyUser, touchApiKey } from "./auth.js";
-import { WindowLimiter } from "./memo.js";
+import { ServiceError } from "./limits.js";
 
-export const REQUESTS_PER_MINUTE = 120; // per user, across REST and MCP; GitHub adds its own 30 searches/min
-
-export class ServiceError extends Error {
-  constructor(status, code, message, extra = {}) {
-    super(message);
-    this.status = status;
-    this.code = code;
-    this.extra = extra;
-  }
-}
+export { ServiceError };
 
 /**
  * Resolves the caller. An Authorization header means API-key auth and never falls back to the cookie.
@@ -43,31 +34,6 @@ export async function authenticate(request, env, url, { allowCookie = true } = {
   );
 }
 
-const fallbackLimiter = new WindowLimiter(REQUESTS_PER_MINUTE, 60_000);
-
-/** Throws ServiceError(429) when the user exceeds REQUESTS_PER_MINUTE. */
-export async function enforceRateLimit(env, user) {
-  const key = `u:${user.id}`;
-  if (env.RATE_LIMITER?.limit) {
-    try {
-      const { success } = await env.RATE_LIMITER.limit({ key });
-      if (success) return;
-      throw new ServiceError(429, "too_many_requests", `Slow down: at most ${REQUESTS_PER_MINUTE} requests per minute per account.`, {
-        retryAfter: 60,
-      });
-    } catch (err) {
-      if (err instanceof ServiceError) throw err;
-      console.error("Rate limiter binding failed, using in-memory fallback", String(err));
-    }
-  }
-  const r = fallbackLimiter.take(key);
-  if (!r.ok) {
-    throw new ServiceError(429, "too_many_requests", `Slow down: at most ${REQUESTS_PER_MINUTE} requests per minute per account.`, {
-      retryAfter: r.retryAfter,
-    });
-  }
-}
-
 export async function userToken(user, env) {
   try {
     return await decryptText(user.token_enc, env.TOKEN_ENCRYPTION_KEY);
@@ -88,9 +54,9 @@ export async function searchFor(user, searchParams, { env, ctx, origin }) {
   const params = parseSearchParams(searchParams);
   if (!params.ok) throw new ServiceError(400, "invalid_params", params.error);
   const token = await userToken(user, env);
-  const understood = await interpretQuery(params.value, { env, ctx, origin });
+  const understood = await interpretQuery(params.value, { env, ctx, origin, user });
   const opts = { ...params.value, parsed: understood.parsed };
-  const result = await searchRepositories(opts, { token, env, ctx, origin });
+  const result = await searchRepositories(opts, { token, env, ctx, origin, userId: user.id });
   return {
     query: {
       input: opts.input,
@@ -117,7 +83,7 @@ export async function readmeFor(user, repoInput, maxCharsInput, { env }) {
   if (!repo) throw new ServiceError(400, "invalid_params", "repo must look like owner/name, e.g. sxyazi/yazi.");
   const maxChars = parseMaxChars(maxCharsInput);
   if (maxChars === null) throw new ServiceError(400, "invalid_params", "max_chars must be a whole number from 200 to 20000.");
-  return getReadme(repo, maxChars, { token: await userToken(user, env), env });
+  return getReadme(repo, maxChars, { token: await userToken(user, env), env, userId: user.id });
 }
 
 // ---------- Compact text for language models ----------

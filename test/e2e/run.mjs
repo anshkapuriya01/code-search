@@ -217,7 +217,7 @@ async function main() {
     TOKEN_ENCRYPTION_KEY: ENC_KEY,
     GITHUB_OAUTH_BASE: MOCK,
     GITHUB_API_BASE: MOCK,
-    ADMIN_GITHUB_IDS: "2001",
+    ADMIN_GITHUB_ID: "2001",
     AI_DAILY_NEURONS: process.env.E2E_REAL_AI ? "9000" : "0", // 0 keeps normal test runs from spending neurons
   };
   dev = spawn(
@@ -644,7 +644,7 @@ async function main() {
     assert.equal((await admin.req("/api/admin/calls?before=abc")).status, 400);
     assert.equal((await admin.req("/api/admin/calls?q=%27%20OR%201%3D1%20--")).json.calls.length, 0, "text is bound, not concatenated");
     const summary = (await admin.req("/api/admin/summary")).json;
-    assert.ok(summary.users.total >= 3 && summary.calls.searchesLast24h > 3);
+    assert.ok(summary.users.total >= 3 && summary.calls.searchesToday > 3);
     assert.equal(summary.registration.open, true);
     assert.equal(summary.ai.enabled, Boolean(process.env.E2E_REAL_AI));
   });

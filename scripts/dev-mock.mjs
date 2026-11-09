@@ -56,7 +56,7 @@ const vars = {
   TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   GITHUB_OAUTH_BASE: MOCK,
   GITHUB_API_BASE: MOCK,
-  ADMIN_GITHUB_IDS: "4242", // the preview user, so /admin/ can be tried
+  ADMIN_GITHUB_ID: "4242", // the preview user, so /admin/ can be tried
   AI_DAILY_NEURONS: "0", // the preview does not spend Workers AI neurons
 };
 spawn(

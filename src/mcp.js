@@ -5,7 +5,6 @@
 
 import {
   authenticate,
-  enforceRateLimit,
   searchFor,
   readmeFor,
   noteKeyUse,
@@ -14,6 +13,8 @@ import {
   ServiceError,
 } from "./service.js";
 import { recordCall, outcomeOf } from "./usage.js";
+import { anonymousRetryAfter, enforceLimits, enforceRateLimit } from "./limits.js";
+import { readBody } from "./http.js";
 import { auditCaller, auditError, auditReadme, auditSearch } from "./audit.js";
 import { GitHubError } from "./search.js";
 import { QueryError, DEFAULT_MIN_STARS, MIN_STARS_FLOOR, MAX_PER_PAGE } from "../public/lib/query.js";
@@ -27,6 +28,8 @@ const META = {
   serverInfo: "io.modelcontextprotocol/serverInfo",
 };
 const MCP_DEFAULT_PER_PAGE = 10;
+const MAX_BODY_BYTES = 64 * 1024;
+const RATE_LIMIT_CODE = -32029;
 
 const INSTRUCTIONS =
   "Code Search searches public GitHub repositories. Describe the project you need in plain words " +
@@ -111,8 +114,8 @@ export async function handleMcp(request, env, ctx, url, audit) {
   }
   if (request.method !== "POST") return new Response(null, { status: 405, headers: { Allow: "POST" } });
 
-  const text = await request.text();
-  if (text.length > 64 * 1024) return rpcHttp(413, rpcError(null, -32600, "Request too large"));
+  const text = await readBody(request, MAX_BODY_BYTES);
+  if (text === null) return rpcHttp(413, rpcError(null, -32600, "Request too large"));
   let msg;
   try {
     msg = JSON.parse(text);
@@ -131,11 +134,16 @@ export async function handleMcp(request, env, ctx, url, audit) {
 
   // Authenticate everything except notifications (which carry no work).
   let caller = null;
-  if (!isNotification) {
+  if (isNotification) {
+    const retryAfter = await anonymousRetryAfter(env, request);
+    if (retryAfter) return rpcHttp(429, rpcError(null, RATE_LIMIT_CODE, "Too many requests."), { "Retry-After": String(retryAfter) });
+  } else {
     try {
       caller = await authenticate(request, env, url, { allowCookie: false });
     } catch (err) {
       if (err instanceof ServiceError && err.status === 401) {
+        const retryAfter = await anonymousRetryAfter(env, request);
+        if (retryAfter) return rpcHttp(429, rpcError(msg.id, RATE_LIMIT_CODE, "Too many requests."), { "Retry-After": String(retryAfter) });
         return rpcHttp(401, rpcError(msg.id, -32001, err.message), {
           "WWW-Authenticate": `Bearer realm="code-search", error="invalid_token"`,
         });
@@ -144,6 +152,22 @@ export async function handleMcp(request, env, ctx, url, audit) {
     }
     auditCaller(audit, caller, "mcp");
     audit.action = `mcp:${msg.method.slice(0, 60)}`;
+
+    // tools/call is limited inside the tool, so that the model is told why. A ping is a keep-alive: it is held to
+    // the per-minute limit but writes nothing, so a client that pings all day does not use up its allowance.
+    if (msg.method !== "tools/call") {
+      const isPing = msg.method === "ping";
+      audit.skip = isPing;
+      audit.uncounted = isPing;
+      try {
+        if (isPing) await enforceRateLimit(env, caller.user);
+        else await enforceLimits(env, caller.user);
+      } catch (err) {
+        if (!(err instanceof ServiceError)) throw err;
+        auditError(audit, err);
+        return rpcHttp(err.status, rpcError(msg.id, RATE_LIMIT_CODE, err.message), { "Retry-After": String(err.extra.retryAfter) });
+      }
+    }
   }
 
   if (modernVersion !== undefined) return handleModern(msg, params, modernVersion, request, caller, env, ctx, url, audit);
@@ -273,7 +297,7 @@ async function runTool(params, caller, env, ctx, url, audit) {
   if (unknown.length) return toolError(`Unknown argument(s): ${unknown.join(", ")}. Allowed: ${Object.keys(tool.inputSchema.properties).join(", ")}.`);
 
   try {
-    await enforceRateLimit(env, caller.user);
+    await enforceLimits(env, caller.user);
     if (name === "search_repositories") {
       if (typeof args.query !== "string" || !args.query.trim()) return toolError("query is required: describe the project you need.");
       const sp = new URLSearchParams();
@@ -296,7 +320,7 @@ async function runTool(params, caller, env, ctx, url, audit) {
     auditReadme(audit, r);
     return { result: { content: [{ type: "text", text: formatReadmeText(r) }], structuredContent: r, isError: false } };
   } catch (err) {
-    recordCall(env, ctx, caller, name === "search_repositories" ? "mcp_search" : "mcp_readme", outcomeOf(err));
+    if (!err.ownLimit) recordCall(env, ctx, caller, name === "search_repositories" ? "mcp_search" : "mcp_readme", outcomeOf(err));
     auditError(audit, err);
     if (err instanceof ServiceError || err instanceof GitHubError) {
       const retry = err.extra?.retryAfter ? ` Retry after ${err.extra.retryAfter} seconds.` : "";

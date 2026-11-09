@@ -5,12 +5,14 @@
 //   /auth/*         GitHub OAuth
 // Everything else is static files in /public (landing page, app, docs, openapi.json, llms.txt).
 
-import { json, errorJson } from "./http.js";
+import { json, errorJson, readBody } from "./http.js";
 import { decryptText, ConfigError } from "./crypto.js";
 import { QueryError } from "../public/lib/query.js";
 import { GitHubError } from "./search.js";
 import { handleMcp } from "./mcp.js";
-import { authenticate, enforceRateLimit, searchFor, readmeFor, noteKeyUse, ServiceError } from "./service.js";
+import { authenticate, searchFor, readmeFor, noteKeyUse, ServiceError } from "./service.js";
+import { anonymousRetryAfter, enforceLimits, enforceRateLimit } from "./limits.js";
+import { runMaintenance } from "./maintenance.js";
 import { recordCall, outcomeOf, usageFor, parseDays } from "./usage.js";
 import { startAudit, auditCaller, auditError, auditSearch, auditReadme, finishAudit } from "./audit.js";
 import { handleAdminApi } from "./admin.js";
@@ -60,9 +62,14 @@ export default {
       response.headers.set("X-Request-Id", requestId);
       response.headers.set("Server-Timing", `total;dur=${Date.now() - started}`);
       response.headers.set("X-Content-Type-Options", "nosniff");
+      if (url.protocol === "https:") response.headers.set("Strict-Transport-Security", "max-age=31536000");
       finishAudit(env, ctx, audit, response.status, Date.now() - started);
     }
     return response;
+  },
+
+  scheduled(_event, env, ctx) {
+    ctx.waitUntil(runMaintenance(env));
   },
 };
 
@@ -108,7 +115,7 @@ async function publicApi(request, env, ctx, url, requestId, audit, kind, repo) {
   try {
     caller = await authenticate(request, env, url);
     auditCaller(audit, caller);
-    await enforceRateLimit(env, caller.user);
+    await enforceLimits(env, caller.user);
     const body =
       kind === "search"
         ? await searchFor(caller.user, url.searchParams, { env, ctx, origin: url.origin })
@@ -124,8 +131,12 @@ async function publicApi(request, env, ctx, url, requestId, audit, kind, repo) {
     if (rl?.reset != null) headers["X-RateLimit-Reset"] = String(rl.reset);
     return json({ ...body, requestId }, 200, headers);
   } catch (err) {
-    if (caller) recordCall(env, ctx, caller, endpoint, outcomeOf(err));
+    if (caller && !err.ownLimit) recordCall(env, ctx, caller, endpoint, outcomeOf(err));
     auditError(audit, err);
+    if (err instanceof ServiceError && err.status === 401) {
+      const retryAfter = await anonymousRetryAfter(env, request);
+      if (retryAfter) return fail(429, "too_many_requests", "Too many requests.", { retryAfter });
+    }
     if (err instanceof ServiceError) return fail(err.status, err.code, err.message, err.extra);
     if (err instanceof GitHubError) {
       return fail(err.status, err.extra.code ?? "github_error", err.message, err.extra.retryAfter ? { retryAfter: err.extra.retryAfter } : {});
@@ -140,6 +151,10 @@ async function publicApi(request, env, ctx, url, requestId, audit, kind, repo) {
 async function handleAuth(request, env, url, audit) {
   const { pathname } = url;
   const method = request.method;
+  if (pathname === "/auth/login" || pathname === "/auth/callback") {
+    const retryAfter = await anonymousRetryAfter(env, request);
+    if (retryAfter) return errorJson(429, "Too many requests.", { code: "too_many_requests", retryAfter }, { "Retry-After": String(retryAfter) });
+  }
   if (pathname === "/auth/login" && method === "GET") return startLogin(env, url);
   if (pathname === "/auth/callback" && method === "GET") return finishLogin(request, env, url, audit);
   if (pathname === "/auth/logout" && method === "POST") {
@@ -164,12 +179,30 @@ async function handleAppApi(request, env, url, audit) {
   const session = await getSession(request, env, url);
   const unauthorized = () => errorJson(401, "Sign in first.", { code: "signin_required" });
   const crossSite = () => errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
+  const limited = (err) =>
+    errorJson(err.status, err.message, { code: err.code, ...err.extra }, { "Retry-After": String(err.extra.retryAfter) });
 
   if (session) {
     auditCaller(audit, { user: session.user, apiKey: null }, "web");
     audit.action = `${method} ${pathname}`.slice(0, 120);
-    // Background checks: /api/me runs on every page view and /api/usage refreshes itself every 20 seconds.
-    audit.skip = method === "GET" && (pathname === "/api/me" || pathname === "/api/usage");
+    // Dashboard reads run on every page view and on a timer. They write nothing and stay available after the daily
+    // allowance is used, so people can still see their usage and manage their keys.
+    const isRead = method === "GET";
+    // A used-up allowance must never stop someone revoking a key or deleting their account.
+    const isRevocation = (method === "DELETE" && pathname.startsWith("/api/keys/")) || pathname === "/api/account/delete";
+    audit.skip = isRead;
+    audit.uncounted = isRead;
+    try {
+      if (isRead) await enforceRateLimit(env, session.user);
+      else await enforceLimits(env, session.user);
+    } catch (err) {
+      if (!(err instanceof ServiceError)) throw err;
+      auditError(audit, err);
+      if (!isRevocation || err.code === "too_many_requests") return limited(err);
+    }
+  } else {
+    const retryAfter = await anonymousRetryAfter(env, request);
+    if (retryAfter) return limited({ status: 429, message: "Too many requests.", code: "too_many_requests", extra: { retryAfter } });
   }
 
   if (pathname.startsWith("/api/admin/")) return handleAdminApi(request, env, url, session, audit);
@@ -242,8 +275,8 @@ function safeDecode(part) {
 
 /** Parses a small JSON body. Returns undefined if it is missing, too large, or invalid. */
 async function readJson(request) {
-  const text = await request.text();
-  if (!text || text.length > 4096) return undefined;
+  const text = await readBody(request, 4096);
+  if (!text) return undefined;
   try {
     return JSON.parse(text);
   } catch {

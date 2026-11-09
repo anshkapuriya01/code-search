@@ -15,6 +15,8 @@ import {
 import { sha256Hex } from "./crypto.js";
 import { TtlCache } from "./memo.js";
 import { buildQueries } from "./search.js";
+import { isAdmin } from "./config.js";
+import { numberVar, utcDay } from "./limits.js";
 import { withAppTables } from "./schema.js";
 
 // Neurons per million tokens, and the typical cost of one request, from Cloudflare's pricing page.
@@ -23,10 +25,11 @@ export const MODELS = {
   economy: { id: "@cf/meta/llama-3.1-8b-instruct-fp8-fast", input: 4119, output: 34868, typical: 4 },
 };
 export const DEFAULT_DAILY_NEURONS = 9000; // of the 10,000 free per day, leaving room for concurrent requests
+export const DEFAULT_USER_DAILY_NEURONS = 500; // about 25 searches a day that need the model, so no account can use it all
 const PRIMARY_SHARE = 0.6; // after this share of the budget, use the cheaper model so AI lasts all day
 const TIMEOUT_MS = 8000;
 const MAX_OUTPUT_TOKENS = 250;
-const PLAN_VERSION = 1; // bump when the prompt changes
+const PLAN_VERSION = 2; // bump when the prompt or the cache key changes
 const PLAN_TTL_SECONDS = 86_400;
 
 const SYSTEM_PROMPT = `You turn a person's request for a software project into search terms for GitHub repositories. Reply with one JSON object and nothing else:
@@ -224,14 +227,8 @@ export function readPlan(result) {
 
 // ---------- Budget ----------
 
-export const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
-
-export function dailyBudget(env) {
-  const raw = env.AI_DAILY_NEURONS;
-  if (raw === undefined || raw === null || raw === "") return DEFAULT_DAILY_NEURONS;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_DAILY_NEURONS;
-}
+export const dailyBudget = (env) => numberVar(env, "AI_DAILY_NEURONS", DEFAULT_DAILY_NEURONS);
+export const userDailyBudget = (env) => numberVar(env, "AI_USER_DAILY_NEURONS", DEFAULT_USER_DAILY_NEURONS);
 
 export function neuronsFor(model, usage) {
   const input = Number(usage?.prompt_tokens);
@@ -247,15 +244,34 @@ export async function aiUsageToday(env) {
   return { day, neurons: row?.neurons ?? 0, calls: row?.calls ?? 0, failures: row?.failures ?? 0 };
 }
 
-function recordSpend(env, ctx, neurons, failed) {
-  const write = withAppTables(env, () =>
-    env.DB.prepare(
-      `INSERT INTO ai_usage (day, neurons, calls, failures) VALUES (?1, ?2, 1, ?3)
-       ON CONFLICT (day) DO UPDATE SET neurons = neurons + excluded.neurons, calls = calls + 1, failures = failures + excluded.failures`,
-    )
-      .bind(utcDay(), neurons, failed ? 1 : 0)
-      .run(),
-  ).catch((err) => console.error("AI usage write failed", String(err)));
+async function userNeuronsToday(env, userId) {
+  const row = await withAppTables(env, () => env.DB.prepare("SELECT neurons FROM user_daily WHERE day = ?1 AND user_id = ?2").bind(utcDay(), userId).first());
+  return row?.neurons ?? 0;
+}
+
+function recordSpend(env, ctx, neurons, failed, user) {
+  const day = utcDay();
+  const write = withAppTables(env, () => {
+    const writes = [
+      env.DB.prepare(
+        `INSERT INTO ai_usage (day, neurons, calls, failures) VALUES (?1, ?2, 1, ?3)
+         ON CONFLICT (day) DO UPDATE SET neurons = neurons + excluded.neurons, calls = calls + 1, failures = failures + excluded.failures`,
+      )
+        .bind(day, neurons, failed ? 1 : 0)
+        .run(),
+    ];
+    if (user) {
+      writes.push(
+        env.DB.prepare(
+          `INSERT INTO user_daily (day, user_id, neurons) VALUES (?1, ?2, ?3)
+           ON CONFLICT (day, user_id) DO UPDATE SET neurons = neurons + excluded.neurons`,
+        )
+          .bind(day, user.id, neurons)
+          .run(),
+      );
+    }
+    return Promise.all(writes);
+  }).catch((err) => console.error("AI usage write failed", String(err)));
   if (ctx?.waitUntil) ctx.waitUntil(write);
   return write;
 }
@@ -263,7 +279,6 @@ function recordSpend(env, ctx, neurons, failed) {
 // ---------- Calling the model ----------
 
 const memoryPlans = new TtlCache(2000);
-const inflight = new Map();
 
 async function cachedPlan(key, origin) {
   const hit = memoryPlans.get(key);
@@ -293,7 +308,7 @@ async function storePlan(key, origin, value) {
   }
 }
 
-async function callModel(env, ctx, model, text) {
+async function callModel(env, ctx, model, text, user) {
   let timer;
   try {
     const result = await Promise.race([
@@ -309,63 +324,65 @@ async function callModel(env, ctx, model, text) {
         timer = setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS);
       }),
     ]);
-    await recordSpend(env, ctx, neuronsFor(model, result?.usage), false);
+    await recordSpend(env, ctx, neuronsFor(model, result?.usage), false, user);
     return { plan: readPlan(result) };
   } catch (err) {
     console.error("Workers AI request failed", String(err));
-    await recordSpend(env, ctx, model.typical, true);
+    await recordSpend(env, ctx, model.typical, true, user);
     return { failure: err?.message === "timeout" ? "ai_timeout" : "ai_error" };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function fetchPlan(env, ctx, text) {
+async function fetchPlan(env, ctx, text, user) {
   const budget = dailyBudget(env);
   if (budget <= 0) return { failure: "ai_disabled" };
+  const admin = isAdmin(env, user); // the admin account has no AI limit
   let spent;
+  let mine = 0;
   try {
     spent = (await aiUsageToday(env)).neurons;
+    if (user && !admin) mine = await userNeuronsToday(env, user.id);
   } catch (err) {
     console.error("Could not read AI usage", String(err));
     return { failure: "ai_error" }; // without the count, spending cannot be kept within the budget
   }
-  if (spent >= budget) return { failure: "budget_exhausted" };
-  return callModel(env, ctx, spent < budget * PRIMARY_SHARE ? MODELS.primary : MODELS.economy, text);
+  if (!admin && spent >= budget) return { failure: "budget_exhausted" };
+  if (!admin && user && mine >= userDailyBudget(env)) return { failure: "user_budget_exhausted" };
+  return callModel(env, ctx, admin || spent < budget * PRIMARY_SHARE ? MODELS.primary : MODELS.economy, text, user);
 }
 
 /**
  * Returns { parsed, interpretedBy: "ai" | "rules", aiStatus } for validated search options. Never throws:
  * every problem falls back to the rule-based parser that already produced opts.parsed.
- * aiStatus: ai, ai_cached, skipped, no_binding, ai_disabled, budget_exhausted, ai_timeout, ai_error, ai_invalid.
+ * aiStatus: ai, ai_cached, skipped, no_binding, ai_disabled, budget_exhausted, user_budget_exhausted, ai_timeout,
+ * ai_error, ai_invalid. Plans are remembered per account, so nobody can tell what anyone else has searched for.
  */
-export async function interpretQuery(opts, { env, ctx, origin }) {
+export async function interpretQuery(opts, { env, ctx, origin, user }) {
   const rules = (aiStatus) => ({ parsed: opts.parsed, interpretedBy: "rules", aiStatus });
   try {
     const text = plainQueryText(opts.input);
     if (text.split(" ").filter(Boolean).length < 2) return rules("skipped"); // nothing to interpret
     if (!env.AI?.run) return rules("no_binding");
 
-    const key = await sha256Hex(JSON.stringify([PLAN_VERSION, text.toLowerCase()]));
+    const key = await sha256Hex(JSON.stringify([PLAN_VERSION, user?.id ?? null, text.toLowerCase()]));
     let stored = await cachedPlan(key, origin);
     const fromCache = stored !== undefined;
     if (!fromCache) {
-      let pending = inflight.get(key);
-      if (!pending) {
-        pending = fetchPlan(env, ctx, text).finally(() => inflight.delete(key));
-        inflight.set(key, pending);
-      }
-      const outcome = await pending;
+      const outcome = await fetchPlan(env, ctx, text, user);
       if (outcome.failure) return rules(outcome.failure);
       stored = { plan: outcome.plan ?? null };
-      const put = storePlan(key, origin, stored); // unusable answers too, so they are not paid for twice
-      if (ctx?.waitUntil) ctx.waitUntil(put);
-      else await put;
     }
 
     const parsed = applyPlan(opts.parsed, stored.plan, text);
-    if (!parsed) return rules("ai_invalid");
+    if (!parsed) return rules("ai_invalid"); // not remembered: a bad answer should not stick for a day
     buildQueries(parsed, { minStars: opts.minStars, language: opts.language, includeArchived: opts.includeArchived }); // too long?
+    if (!fromCache) {
+      const put = storePlan(key, origin, stored);
+      if (ctx?.waitUntil) ctx.waitUntil(put);
+      else await put;
+    }
     return { parsed, interpretedBy: "ai", aiStatus: fromCache ? "ai_cached" : "ai" };
   } catch (err) {
     console.error("Query interpretation failed", String(err));

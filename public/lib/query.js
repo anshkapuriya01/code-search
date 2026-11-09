@@ -268,7 +268,8 @@ export function parseQuery(input) {
       const k = key.toLowerCase();
       if (ALLOWED_QUALIFIERS.has(k) && value.replace(/"/g, "").trim()) {
         flush();
-        qualifiers.push({ key: k, value, negated: neg === "-" });
+        // A stray quote would swallow the star and archive filters that follow it in the GitHub query.
+        qualifiers.push({ key: k, value: /^"[^"]*"$/.test(value) ? value : value.replace(/"/g, ""), negated: neg === "-" });
       } else if (MANAGED_QUALIFIERS.has(k)) {
         flush();
         ignored.push(whole);
@@ -362,8 +363,11 @@ export function alternateTerms(core, soft) {
   return [...new Set(terms)];
 }
 
+// Anything but a plain word is quoted, so a phrase like "stars:>0" stays text and cannot act as a GitHub qualifier.
+const PLAIN_TERM_RE = /^[\p{L}\p{N}][\p{L}\p{N}+#._-]*$/u;
+
 function formatTerm(term) {
-  return /\s/.test(term) ? `"${term}"` : term;
+  return PLAIN_TERM_RE.test(term) ? term : `"${term}"`;
 }
 
 /**
@@ -455,7 +459,25 @@ function normalizeForMatch(text) {
 }
 
 function isWordChar(ch) {
-  return !!ch && /[\p{L}\p{N}]/u.test(ch);
+  if (!ch) return false;
+  const code = ch.charCodeAt(0);
+  if (code < 128) return (code >= 48 && code <= 57) || (code >= 97 && code <= 122) || (code >= 65 && code <= 90);
+  return /[\p{L}\p{N}]/u.test(ch);
+}
+
+// Ranking looks up the same few terms thousands of times per search.
+const matchTerms = new Map();
+
+function matchTermFor(keyword) {
+  let found = matchTerms.get(keyword);
+  if (!found) {
+    const normalized = normalizeForMatch(keyword);
+    const wholeWord = normalized.length <= 3;
+    found = { wholeWord, term: wholeWord ? normalized : stem(normalized) };
+    if (matchTerms.size >= 2000) matchTerms.clear();
+    matchTerms.set(keyword, found);
+  }
+  return found;
 }
 
 // Light stemming so "converter" finds "converting", "hosting" finds "hosted" and "tables" finds "table".
@@ -472,9 +494,7 @@ export function stem(term) {
 // Keywords must start at a word boundary ("todo" matches "todolist" but not "mytodo").
 // Short keywords (3 chars or fewer, e.g. "go", "cli") must match a whole word.
 function containsTerm(haystack, keyword) {
-  const normalized = normalizeForMatch(keyword);
-  const wholeWord = normalized.length <= 3;
-  const term = wholeWord ? normalized : stem(normalized);
+  const { wholeWord, term } = matchTermFor(keyword);
   let i = haystack.indexOf(term);
   while (i !== -1) {
     const before = i === 0 ? "" : haystack[i - 1];
@@ -622,9 +642,17 @@ export const RELAXED_MIN_RESULTS = 10;
  * are 3+ key terms, 60% of them is enough. Output is ordered by score (match quality, then stars).
  * matchLevel describes the loosest result: all_keywords, key_terms_plus, key_terms or most_key_terms.
  */
-export function rankResults(candidates, parsed, { trusted = new Set() } = {}) {
+export function rankResults(candidates, parsed, { trusted = new Set(), scores = null } = {}) {
   const n = parsed.core.length;
-  const scored = dedupeById(candidates).map((repo) => ({ ...scoreRepo(repo, parsed), trusted: trusted.has(repo.id) }));
+  const scoreOf = (repo) => {
+    let score = scores?.get(repo.id);
+    if (!score) {
+      score = scoreRepo(repo, parsed);
+      scores?.set(repo.id, score);
+    }
+    return score;
+  };
+  const scored = dedupeById(candidates).map((repo) => ({ ...scoreOf(repo), trusted: trusted.has(repo.id) }));
 
   let level = "key_terms";
   let chosen = scored.filter((x) => x.trusted || x.coreHits === n);

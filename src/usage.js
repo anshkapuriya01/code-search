@@ -2,7 +2,9 @@
 // call (one D1 upsert, off the response path) and read by the dashboard's Usage view.
 // Only counts and outcomes are stored, never the query text.
 
-export const USAGE_RETENTION_DAYS = 90;
+import { siteIsFull } from "./limits.js";
+
+export const USAGE_RETENTION_DAYS = 90; // enforced daily by maintenance.js
 export const ENDPOINTS = ["rest_search", "rest_readme", "mcp_search", "mcp_readme"];
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -58,7 +60,7 @@ export function outcomeOf(err) {
  * dashboard (cookie session, no key) are counted under key_id 'web'.
  */
 export function recordCall(env, ctx, caller, endpoint, outcome, cached = false) {
-  if (!env?.DB || !ctx?.waitUntil || !caller?.user || !ENDPOINTS.includes(endpoint)) return;
+  if (!env?.DB || !ctx?.waitUntil || !caller?.user || !ENDPOINTS.includes(endpoint) || siteIsFull(env)) return;
   const hour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
   const keyId = caller.apiKey?.keyId ?? "web";
   const args = [caller.user.id, keyId, hour, endpoint, outcome === "ok" ? 1 : 0, outcome === "error" ? 1 : 0, outcome === "limited" ? 1 : 0, cached ? 1 : 0];
@@ -72,7 +74,7 @@ export function parseDays(raw) {
   return [1, 7, 30, 90].includes(n) ? n : null;
 }
 
-/** Usage rows for the user's last `days` days, plus their keys. Also drops rows past retention. */
+/** Usage rows for the user's last `days` days, plus their keys. */
 export function usageFor(env, userId, days, keys) {
   return withUsageTable(env, () => readUsage(env, userId, days, keys));
 }
@@ -80,9 +82,6 @@ export function usageFor(env, userId, days, keys) {
 async function readUsage(env, userId, days, keys) {
   const now = Date.now();
   const since = Math.floor((now - days * DAY_MS) / HOUR_MS) * HOUR_MS + HOUR_MS;
-  await env.DB.prepare("DELETE FROM key_usage WHERE user_id = ?1 AND hour < ?2")
-    .bind(userId, now - USAGE_RETENTION_DAYS * DAY_MS)
-    .run();
   const { results } = await env.DB.prepare(
     `SELECT key_id, hour, endpoint, calls, ok, errors, limited, cached FROM key_usage
      WHERE user_id = ?1 AND hour >= ?2 ORDER BY hour`,

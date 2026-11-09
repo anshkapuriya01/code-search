@@ -10,10 +10,18 @@ export function githubOAuthBase(env) {
   return (env.GITHUB_OAUTH_BASE || "https://github.com").replace(/\/+$/, "");
 }
 
-/** True for the GitHub accounts listed (by numeric id, which never changes) in ADMIN_GITHUB_IDS. */
+const GITHUB_TIMEOUT_MS = 10_000;
+
+/** Stops a GitHub call that has not finished in time, so a stalled GitHub cannot stall our users. */
+export const githubTimeout = () => AbortSignal.timeout(GITHUB_TIMEOUT_MS);
+
+/**
+ * True only for the one admin account: ADMIN_GITHUB_ID, a numeric GitHub id, which unlike a login or an email
+ * can never be taken over by renaming. Anything but a single number (a list, for example) means no admin at all.
+ */
 export function isAdmin(env, user) {
-  if (!user || !env.ADMIN_GITHUB_IDS) return false;
-  return String(env.ADMIN_GITHUB_IDS).split(",").map((id) => id.trim()).includes(String(user.id));
+  const id = String(env.ADMIN_GITHUB_ID ?? "").trim();
+  return Boolean(user) && /^\d+$/.test(id) && String(user.id) === id;
 }
 
 const REQUIRED = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "TOKEN_ENCRYPTION_KEY"];
