@@ -4,7 +4,7 @@
 
 import { parseQuery, buildQuery, DEFAULT_MIN_STARS } from "/lib/query.js";
 import { AGENTS, mcpUrl, markSvg, copyText, PLACEHOLDER_KEY } from "/js/agents.js";
-import { initChrome, stagger, session, reduced } from "/js/motion.js";
+import { initChrome, stagger, session, registrationOpen, reduced } from "/js/motion.js";
 import { renderCode } from "/js/code.js";
 
 const $ = (id) => document.getElementById(id);
@@ -118,7 +118,8 @@ function initFinder() {
     } catch {
       // storage blocked: the dashboard just opens empty
     }
-    location.href = (await session) ? "/app/#search" : "/auth/login";
+    if (await session) location.href = "/app/#search";
+    else location.href = (await registrationOpen) ? "/auth/login" : "/app/";
   });
 }
 

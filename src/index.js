@@ -12,6 +12,10 @@ import { GitHubError } from "./search.js";
 import { handleMcp } from "./mcp.js";
 import { authenticate, enforceRateLimit, searchFor, readmeFor, noteKeyUse, ServiceError } from "./service.js";
 import { recordCall, outcomeOf, usageFor, parseDays } from "./usage.js";
+import { startAudit, auditCaller, auditError, auditSearch, auditReadme, finishAudit } from "./audit.js";
+import { handleAdminApi } from "./admin.js";
+import { isAdmin } from "./config.js";
+import { registrationOpenForDisplay } from "./settings.js";
 import {
   startLogin,
   finishLogin,
@@ -39,11 +43,13 @@ export default {
     const url = new URL(request.url);
     const started = Date.now();
     const requestId = request.headers.get("cf-ray") || crypto.randomUUID();
+    const audit = startAudit(request, url, requestId);
     let response;
     try {
-      response = await route(request, env, ctx, url, requestId);
+      response = await route(request, env, ctx, url, requestId, audit);
     } catch (err) {
       console.error("Unhandled error", requestId, err instanceof Error ? err.stack : String(err));
+      auditError(audit, err);
       const message = err instanceof ConfigError ? "The server is not configured correctly." : "Something went wrong.";
       response = isApiPath(url.pathname)
         ? errorJson(500, message, { code: "internal_error", requestId }, isPublicApi(url.pathname) ? PUBLIC_CORS : {})
@@ -54,6 +60,7 @@ export default {
       response.headers.set("X-Request-Id", requestId);
       response.headers.set("Server-Timing", `total;dur=${Date.now() - started}`);
       response.headers.set("X-Content-Type-Options", "nosniff");
+      finishAudit(env, ctx, audit, response.status, Date.now() - started);
     }
     return response;
   },
@@ -62,28 +69,28 @@ export default {
 const isApiPath = (p) => p === "/mcp" || p.startsWith("/api/") || p.startsWith("/v1/") || p.startsWith("/auth/");
 const isPublicApi = (p) => p.startsWith("/v1/") || p === "/api/search";
 
-async function route(request, env, ctx, url, requestId) {
+async function route(request, env, ctx, url, requestId, audit) {
   const { pathname } = url;
   if (pathname === "/mcp") {
     if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return errorJson(500, "The server is not configured correctly.", { code: "internal_error" });
-    return handleMcp(request, env, ctx, url);
+    return handleMcp(request, env, ctx, url, audit);
   }
-  if (pathname.startsWith("/auth/")) return handleAuth(request, env, url);
-  if (pathname === "/v1/search" || pathname === "/api/search") return publicApi(request, env, ctx, url, requestId, "search");
+  if (pathname.startsWith("/auth/")) return handleAuth(request, env, url, audit);
+  if (pathname === "/v1/search" || pathname === "/api/search") return publicApi(request, env, ctx, url, requestId, audit, "search");
   const readme = pathname.match(/^\/v1\/repos\/([^/]+)\/([^/]+)\/readme$/);
-  if (readme) return publicApi(request, env, ctx, url, requestId, "readme", `${safeDecode(readme[1])}/${safeDecode(readme[2])}`);
+  if (readme) return publicApi(request, env, ctx, url, requestId, audit, "readme", `${safeDecode(readme[1])}/${safeDecode(readme[2])}`);
   if (pathname.startsWith("/v1/")) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: PUBLIC_CORS });
     return errorJson(404, "Not found. The API is described at /openapi.json.", { code: "not_found", requestId }, PUBLIC_CORS);
   }
-  if (pathname.startsWith("/api/")) return handleAppApi(request, env, url);
+  if (pathname.startsWith("/api/")) return handleAppApi(request, env, url, audit);
   if (env.ASSETS) return env.ASSETS.fetch(request);
   return new Response("Not found", { status: 404 });
 }
 
 // ---------- Public REST API (/v1) ----------
 
-async function publicApi(request, env, ctx, url, requestId, kind, repo) {
+async function publicApi(request, env, ctx, url, requestId, audit, kind, repo) {
   const fail = (status, code, message, extra = {}) => {
     const headers = { ...PUBLIC_CORS };
     if (extra.retryAfter) headers["Retry-After"] = String(extra.retryAfter);
@@ -94,9 +101,13 @@ async function publicApi(request, env, ctx, url, requestId, kind, repo) {
   if (!env.DB || !env.TOKEN_ENCRYPTION_KEY) return fail(500, "internal_error", "The server is not configured correctly.");
 
   const endpoint = kind === "search" ? "rest_search" : "rest_readme";
+  audit.action = endpoint;
+  audit.input = kind === "search" ? Object.fromEntries(url.searchParams) : { repo, max_chars: url.searchParams.get("max_chars") };
+  audit.query = kind === "search" ? url.searchParams.get("q") : repo;
   let caller = null;
   try {
     caller = await authenticate(request, env, url);
+    auditCaller(audit, caller);
     await enforceRateLimit(env, caller.user);
     const body =
       kind === "search"
@@ -104,6 +115,8 @@ async function publicApi(request, env, ctx, url, requestId, kind, repo) {
         : await readmeFor(caller.user, repo, url.searchParams.get("max_chars"), { env });
     noteKeyUse(env, ctx, caller.apiKey);
     recordCall(env, ctx, caller, endpoint, "ok", body.cached === true);
+    if (kind === "search") auditSearch(audit, body);
+    else auditReadme(audit, body);
     const headers = { ...PUBLIC_CORS, "Cache-Control": "private, no-store" };
     const rl = body.rateLimit;
     if (rl?.limit != null) headers["X-RateLimit-Limit"] = String(rl.limit);
@@ -112,6 +125,7 @@ async function publicApi(request, env, ctx, url, requestId, kind, repo) {
     return json({ ...body, requestId }, 200, headers);
   } catch (err) {
     if (caller) recordCall(env, ctx, caller, endpoint, outcomeOf(err));
+    auditError(audit, err);
     if (err instanceof ServiceError) return fail(err.status, err.code, err.message, err.extra);
     if (err instanceof GitHubError) {
       return fail(err.status, err.extra.code ?? "github_error", err.message, err.extra.retryAfter ? { retryAfter: err.extra.retryAfter } : {});
@@ -123,15 +137,19 @@ async function publicApi(request, env, ctx, url, requestId, kind, repo) {
 
 // ---------- OAuth ----------
 
-async function handleAuth(request, env, url) {
+async function handleAuth(request, env, url, audit) {
   const { pathname } = url;
   const method = request.method;
   if (pathname === "/auth/login" && method === "GET") return startLogin(env, url);
-  if (pathname === "/auth/callback" && method === "GET") return finishLogin(request, env, url);
+  if (pathname === "/auth/callback" && method === "GET") return finishLogin(request, env, url, audit);
   if (pathname === "/auth/logout" && method === "POST") {
     if (!isSameOrigin(request, url)) return errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
     const session = env.DB ? await getSession(request, env, url) : null;
-    if (session) await endSession(env, session.sessionHash);
+    if (session) {
+      await endSession(env, session.sessionHash);
+      auditCaller(audit, { user: session.user, apiKey: null }, "auth");
+      audit.action = "auth_signout";
+    }
     return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie(url) });
   }
   return errorJson(404, "Not found.", { code: "not_found" });
@@ -139,7 +157,7 @@ async function handleAuth(request, env, url) {
 
 // ---------- Web app API (session cookie) ----------
 
-async function handleAppApi(request, env, url) {
+async function handleAppApi(request, env, url, audit) {
   const { pathname } = url;
   const method = request.method;
   if (!env.DB) return errorJson(500, "The server is not configured correctly.", { code: "internal_error" });
@@ -147,10 +165,19 @@ async function handleAppApi(request, env, url) {
   const unauthorized = () => errorJson(401, "Sign in first.", { code: "signin_required" });
   const crossSite = () => errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
 
+  if (session) {
+    auditCaller(audit, { user: session.user, apiKey: null }, "web");
+    audit.action = `${method} ${pathname}`.slice(0, 120);
+    // Background checks: /api/me runs on every page view and /api/usage refreshes itself every 20 seconds.
+    audit.skip = method === "GET" && (pathname === "/api/me" || pathname === "/api/usage");
+  }
+
+  if (pathname.startsWith("/api/admin/")) return handleAdminApi(request, env, url, session, audit);
+
   if (pathname === "/api/me" && method === "GET") {
-    if (!session) return unauthorized();
+    if (!session) return errorJson(401, "Sign in first.", { code: "signin_required", registrationOpen: await registrationOpenForDisplay(env) });
     const { login, name, avatar_url } = session.user;
-    return json({ user: { login, name, avatarUrl: avatar_url } });
+    return json({ user: { login, name, avatarUrl: avatar_url }, isAdmin: isAdmin(env, session.user), registrationOpen: await registrationOpenForDisplay(env) });
   }
 
   if (pathname === "/api/keys") {
@@ -160,8 +187,10 @@ async function handleAppApi(request, env, url) {
       if (!isSameOrigin(request, url)) return crossSite();
       const body = await readJson(request);
       if (body === undefined) return errorJson(400, 'Send a JSON body like {"name": "my agent"}.', { code: "invalid_params" });
+      audit.input = { name: typeof body?.name === "string" ? body.name.slice(0, 60) : null };
       const result = await createApiKey(env, session.user.id, body?.name);
       if (result.error) return errorJson(result.status, result.error, { code: result.status === 409 ? "limit_reached" : "invalid_params" });
+      audit.output = { id: result.record.id, name: result.record.name, prefix: result.record.prefix }; // never the key itself
       return json({ key: result.key, ...result.record }, 201);
     }
     return errorJson(405, "Use GET or POST.", { code: "method_not_allowed" });
@@ -195,6 +224,7 @@ async function handleAppApi(request, env, url) {
       console.error("Could not decrypt token during account deletion", String(err));
     }
     await deleteAccount(env, session.user.id);
+    audit.user = null; // the account and its log are gone; do not start a new one
     return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie(url) });
   }
 

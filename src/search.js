@@ -5,7 +5,7 @@
 //  2. core:   only the key terms, when the request has descriptive words ("self-hosted", "python",
 //             "library") and the strict search did not already fill the pool. Projects that are what
 //             was asked for often never use the descriptive word ("mail server" vs "self-hosted").
-//  3. alt:    the key terms with a related concept swapped in ("email" -> "mail server").
+//  3. alt:    the key terms with a related concept swapped in ("email" -> "mail server"); up to two.
 //  4. any:    GitHub's best matches for any key term, only when fewer than STRICT_MIN_RESULTS fit.
 // Candidates are then filtered and ordered by rankResults(): how well the name, topics and opening
 // of the description match the request, then stars. The ranked list is cached and paged locally.
@@ -19,7 +19,7 @@ export const POOL_CANDIDATES = 100; // GitHub's maximum per_page
 export const ALT_CANDIDATES = 50;
 export const BROAD_CANDIDATES = 50;
 export const MAX_RESULTS = 100; // ranked results kept per search (and paged through)
-const CACHE_VERSION = 2; // bump when the cached shape or ranking changes
+const CACHE_VERSION = 3; // bump when the cached shape or ranking changes
 const CACHE_TTL_SECONDS = 600;
 const MEMORY_CACHE_MAX = 100;
 
@@ -38,6 +38,8 @@ export async function searchRepositories(opts, { token, env, ctx, origin }) {
       CACHE_VERSION,
       opts.parsed.keywords,
       opts.parsed.core,
+      opts.parsed.synonyms ?? null,
+      opts.parsed.altSearches ?? null,
       opts.parsed.qualifiers,
       opts.minStars,
       opts.language,
@@ -85,13 +87,24 @@ export async function searchRepositories(opts, { token, env, ctx, origin }) {
 
 const inflight = new Map();
 
+/** Every GitHub query for a request. Throws QueryError if one is too long, before any GitHub call. */
+export function buildQueries(parsed, filters) {
+  const strict = buildQuery(parsed, filters, "strict");
+  const core = parsed.soft.length ? buildQuery(parsed, filters, "core") : null;
+  const seen = new Set([strict, core]);
+  const alts = [];
+  for (const altTerms of parsed.altSearches ?? []) {
+    const q = buildQuery({ ...parsed, altTerms }, filters, "alt");
+    if (!seen.has(q)) alts.push(q);
+    seen.add(q);
+  }
+  const any = parsed.core.length >= 2 ? buildQuery(parsed, filters, "any") : null;
+  return { strict, core, alts, any };
+}
+
 async function runSearch({ parsed, minStars, language, includeArchived }, token, env) {
   const filters = { minStars, language, includeArchived };
-  // Build every query up front so an over-long query fails before any GitHub call.
-  const strictQuery = buildQuery(parsed, filters, "strict");
-  const coreQuery = parsed.soft.length ? buildQuery(parsed, filters, "core") : null;
-  const altQuery = parsed.altTerms ? buildQuery(parsed, filters, "alt") : null;
-  const anyQuery = parsed.core.length >= 2 ? buildQuery(parsed, filters, "any") : null;
+  const { strict: strictQuery, core: coreQuery, alts: altQueries, any: anyQuery } = buildQueries(parsed, filters);
 
   const strict = await githubSearch(strictQuery, { sortByStars: true, perPage: POOL_CANDIDATES }, token, env);
   let rateLimit = strict.rateLimit;
@@ -112,7 +125,7 @@ async function runSearch({ parsed, minStars, language, includeArchived }, token,
     if (coreQuery && coreQuery !== strictQuery && strict.total < POOL_CANDIDATES) {
       await fetchMore(coreQuery, true, POOL_CANDIDATES);
     }
-    if (altQuery && altQuery !== strictQuery && altQuery !== coreQuery) await fetchMore(altQuery, true, ALT_CANDIDATES);
+    for (const altQuery of altQueries) await fetchMore(altQuery, true, ALT_CANDIDATES);
     // "any" uses GitHub's best-match order; sorted by stars it would only return huge repos that
     // happen to contain one of the words.
     if (anyQuery && rankResults(candidates, parsed, { trusted }).items.length < STRICT_MIN_RESULTS) {

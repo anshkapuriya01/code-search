@@ -835,7 +835,7 @@ def docs():
     ["By endpoint", "MCP search_repositories and get_repository_readme, and the REST search and README routes."],
     ["When your agents call", "A weekday-by-hour heatmap in your local time."],
 ])}
-<p>Filter by key from the menu, or open a key's usage from its 7-day spark on the API keys tab. Counts are stored per key and hour and kept for 90 days. The text of your searches is never stored.</p>""", "Account")
+<p>Filter by key from the menu, or open a key's usage from its 7-day spark on the API keys tab. Counts are stored per key and hour and kept for 90 days.</p>""", "Account")
     main += sec("security", "Security and privacy", """<ul class="doc-list">
   <li><span>The GitHub app requests no scopes, so tokens can read public data only.</span></li>
   <li><span>GitHub tokens are stored encrypted with AES-256-GCM. Sessions and API keys are stored only as SHA-256 hashes.</span></li>
@@ -907,29 +907,29 @@ def simple_page(path, title, desc, inner, js="/js/page.js", robots=None, cls="pa
 PRIVACY = """<article class="prose">
   <p class="doc-kicker">Legal</p>
   <h1>Privacy</h1>
-  <p>Last updated 4 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
+  <p>Last updated 9 November 2026. This notice explains what Code Search (codesearch.amplfyd.com, part of amplfyd) stores when you use it, and why.</p>
   <h2>What we store</h2>
   <ul>
     <li>Your GitHub user id, login, display name and avatar URL, so the dashboard can show who is signed in.</li>
     <li>The GitHub access token GitHub gives us when you sign in, encrypted with AES-256-GCM. It has no scopes, so it can only read public data. We use it only to run your searches and README reads on your own GitHub quota.</li>
     <li>SHA-256 hashes of your session cookie and your API keys, plus each key's name, first characters, creation date and when it was last used.</li>
-    <li>Hourly counts of your API calls per key and endpoint (how many, and whether they succeeded, were rate-limited or came from cache), kept for 90 days for the Usage tab. Not the text of your searches.</li>
+    <li>Hourly counts of your API calls per key and endpoint (how many, and whether they succeeded, were rate-limited or came from cache), kept for 90 days for the Usage tab.</li>
+    <li>A log of each call made with your account: when it happened, which key or the dashboard made it, what you searched for or which README you asked for, the results returned (repository names, stars, language, licence and a short description, or the first 1,000 characters of a README), whether it worked, your browser or agent's User-Agent and your country. We also record sign-ins and API key changes. The log is kept for up to 90 days and is visible to the people who run Code Search, so they can operate the service and stop abuse. It never contains your API keys, tokens or IP address.</li>
   </ul>
   <h2>What we do not store</h2>
   <ul>
     <li>Your password. Sign-in happens on GitHub's own page.</li>
     <li>Your private repositories. The token cannot see them.</li>
-    <li>A history of your searches tied to your account. Search results are cached for ten minutes, keyed by the search itself, so identical searches can be answered without calling GitHub.</li>
   </ul>
   <h2>Who else is involved</h2>
   <ul>
     <li>GitHub, which handles sign-in and answers every search.</li>
-    <li>Cloudflare, which hosts the site, the database and the cache.</li>
+    <li>Cloudflare, which hosts the site, the database and the cache, and whose Workers AI service reads the text of your search to work out what to look for. Your account is not sent with it.</li>
   </ul>
   <h2>Cookies</h2>
   <p>One sign-in cookie (HttpOnly, SameSite=Lax) and a short-lived cookie that protects the sign-in step. No advertising or analytics cookies.</p>
   <h2>Deleting your data</h2>
-  <p>Delete your account from the dashboard under Account. Your keys, sessions and token are removed and Code Search's access to your GitHub account is revoked in the same step.</p>
+  <p>Delete your account from the dashboard under Account. Your keys, sessions, token, usage counts and call log are removed and Code Search's access to your GitHub account is revoked in the same step.</p>
 </article>"""
 
 TERMS = """<article class="prose">

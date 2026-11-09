@@ -31,6 +31,7 @@ class ApiError extends Error {
     this.status = status;
     this.code = body?.code;
     this.retryAfter = body?.retryAfter;
+    this.registrationOpen = body?.registrationOpen;
   }
 }
 
@@ -76,6 +77,7 @@ const LOGIN_ERRORS = {
   state: "Sign-in expired or could not be verified. Please try again.",
   github: "GitHub sign-in failed. Please try again.",
   config: "Sign-in is not set up on this server yet.",
+  registration_closed: "New sign-ups are closed right now, so no account was created. Code Search's access to your GitHub account has been removed.",
 };
 
 // ---------- Views ----------
@@ -125,14 +127,26 @@ async function init() {
     flash(LOGIN_ERRORS[err] || "Sign-in failed. Please try again.");
     history.replaceState(null, "", location.pathname + location.hash);
   }
+  let isAdmin = false;
+  let registrationOpen = true;
   try {
-    me = (await api("/api/me")).user;
+    const who = await api("/api/me");
+    me = who.user;
+    isAdmin = who.isAdmin === true;
   } catch (e) {
     if (!(e instanceof ApiError && e.status === 401)) handle(e);
+    else registrationOpen = e.registrationOpen !== false;
     me = null;
+  }
+  if (!registrationOpen) {
+    $("signin-h").textContent = "New sign-ups are closed";
+    $("signin-text").textContent = "Code Search is not taking new users right now. If you already have an account, sign in as usual.";
+    $("signin-action").textContent = "Existing users: continue with GitHub";
+    $("signin-feats").hidden = true;
   }
   if (me) {
     $("app-tabs").hidden = false;
+    $("admin-tab").hidden = !isAdmin;
     $("app-user").hidden = false;
     $("login").textContent = me.login;
     $("account-login").textContent = me.login;
@@ -228,6 +242,7 @@ function renderResults(d) {
     el("strong", { text: `${fmt.format(d.total)} ${d.total === 1 ? "project" : "projects"}` }),
     ` with ${fmt.format(d.query.minStars)}+ stars, ${LEVEL[d.matchLevel] ?? ""}. Best matches first, then by stars.`,
   ];
+  if (d.query.interpretedBy === "ai") bits.push(el("span", { class: "quiet", text: " Understood by AI." }));
   if (d.query.keyTerms.length) bits.push(el("span", { class: "quiet", text: ` Key terms: ${d.query.keyTerms.join(", ")}.` }));
   if (d.query.context?.length) bits.push(el("span", { class: "quiet", text: ` Context, not searched: ${d.query.context.join("; ")}.` }));
   if (d.query.ignored.length) bits.push(el("span", { class: "quiet", text: ` Ignored: ${d.query.ignored.join(" ")}.` }));

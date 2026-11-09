@@ -34,6 +34,16 @@ name = "RATE_LIMITER"
 namespace_id = "7311"
 simple = { limit = 120, period = 60 }
 
+# Workers AI interprets search requests. The free allocation is 10,000 neurons a day; see AI_DAILY_NEURONS below.
+[ai]
+binding = "AI"
+
+[vars]
+# Numeric GitHub user ids (comma separated) allowed into the admin console at /admin/.
+ADMIN_GITHUB_IDS = "185783357"
+# Daily Workers AI limit in neurons. Above it, searches use the rule-based parser. 0 turns AI off.
+AI_DAILY_NEURONS = "9000"
+
 [observability]
 enabled = true
 

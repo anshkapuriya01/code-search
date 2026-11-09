@@ -28,6 +28,7 @@
         <a href="#keys" data-view="keys">API keys</a>
         <a href="#usage" data-view="usage">Usage</a>
         <a href="#account" data-view="account">Account</a>
+        <a href="/admin/" id="admin-tab" hidden>Admin</a>
         <a href="/docs/">Docs</a>
       </div>
       <div class="nav-end" id="app-user" hidden>
@@ -56,14 +57,14 @@
       <div class="card signin-main">
         <span class="tag">No setup</span>
         <h1 id="signin-h">Sign in and start searching</h1>
-        <p>Sign in with GitHub to search live and create API keys for your agents. Code Search asks for no permissions beyond public data, and it's free.</p>
-        <ul class="feats">
+        <p id="signin-text">Sign in with GitHub to search live and create API keys for your agents. Code Search asks for no permissions beyond public data, and it's free.</p>
+        <ul class="feats" id="signin-feats">
           <li>Nothing to install or configure</li>
           <li>Your own GitHub quota of 30 searches a minute</li>
           <li>Results ranked by stars, spam removed</li>
           <li>Made for agents on Amplfyd, launching soon</li>
         </ul>
-        <a class="btn btn-accent btn-big btn-ticket" href="/auth/login"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Continue with GitHub</span></a>
+        <a class="btn btn-accent btn-big btn-ticket" href="/auth/login"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span id="signin-action">Continue with GitHub</span></a>
       </div>
       <div class="signin-visual">
         <div class="orbit" role="img" aria-label="The GitHub mark at the centre, circled by Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp"><div class="orbit-core"><svg class="mark core-gh" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><img class="core-cs" src="/img/logo.svg" alt="" width="34" height="25" draggable="false"></div><div class="ring ring-1"><span class="t b-claude" title="Claude Code"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg></span></span><span class="t b-codex" title="Codex"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#codex"/></svg></span></span><span class="t b-cursor" title="Cursor"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg></span></span><span class="t b-grok" title="Grok"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#grok"/></svg></span></span></div><div class="ring ring-2"><span class="t b-copilot" title="GitHub Copilot"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#copilot"/></svg></span></span><span class="t b-windsurf" title="Windsurf"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#windsurf"/></svg></span></span><span class="t b-gemini" title="Gemini CLI"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#gemini"/></svg></span></span><span class="t b-cline" title="Cline"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cline"/></svg></span></span><span class="t b-amp" title="Amp"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#amp"/></svg></span></span></div></div>
@@ -219,7 +220,7 @@
 
     <!-- Usage -->
     <section class="app-view" id="view-usage" hidden aria-labelledby="usage-h">
-      <div class="view-head"><h1 id="usage-h" class="view-title">Usage</h1><p>When and how often your keys called Code Search. Counted per hour and kept for 90 days. Search text is never stored.</p></div>
+      <div class="view-head"><h1 id="usage-h" class="view-title">Usage</h1><p>When and how often your keys called Code Search. Counted per hour and kept for 90 days.</p></div>
       <div class="usage-bar">
         <div class="seg" role="group" aria-label="Time range">
           <button type="button" data-days="1" aria-pressed="false">24 hours</button>

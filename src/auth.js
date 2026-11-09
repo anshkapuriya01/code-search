@@ -2,8 +2,10 @@
 
 import { randomToken, sha256Hex, encryptText, safeEqual } from "./crypto.js";
 import { redirect, parseCookies, serializeCookie } from "./http.js";
-import { githubApiBase, githubOAuthBase, missingConfig, USER_AGENT } from "./config.js";
+import { githubApiBase, githubOAuthBase, isAdmin, missingConfig, USER_AGENT } from "./config.js";
 import { TtlCache } from "./memo.js";
+import { withAppTables } from "./schema.js";
+import { registrationOpenForDisplay, registrationState } from "./settings.js";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const STATE_TTL_SECONDS = 600;
@@ -33,7 +35,7 @@ const sessionCookieName = (url) => (isSecure(url) ? "__Host-cs_session" : "cs_se
 
 // ---------- OAuth ----------
 
-export function startLogin(env, url) {
+export async function startLogin(env, url) {
   const missing = missingConfig(env);
   if (missing.length) {
     console.error("Login unavailable, missing configuration:", missing.join(", "));
@@ -44,14 +46,14 @@ export function startLogin(env, url) {
   authorize.searchParams.set("client_id", env.GITHUB_CLIENT_ID);
   authorize.searchParams.set("redirect_uri", `${url.origin}/auth/callback`);
   authorize.searchParams.set("state", state);
-  authorize.searchParams.set("allow_signup", "true");
+  authorize.searchParams.set("allow_signup", String(await registrationOpenForDisplay(env)));
   // No "scope" parameter: the token can only read public data, which is all search needs.
   return redirect(authorize.toString(), [
     serializeCookie(STATE_COOKIE, state, { path: "/auth", maxAge: STATE_TTL_SECONDS, secure: isSecure(url) }),
   ]);
 }
 
-export async function finishLogin(request, env, url) {
+export async function finishLogin(request, env, url, audit) {
   const clearState = serializeCookie(STATE_COOKIE, "", { path: "/auth", maxAge: 0, secure: isSecure(url) });
   const fail = (code) => redirect(`/app/?error=${code}`, [clearState]);
 
@@ -67,6 +69,19 @@ export async function finishLogin(request, env, url) {
   if (!token) return fail("github");
   const ghUser = await fetchGitHubUser(env, token);
   if (!ghUser) return fail("github");
+
+  // Only accounts that do not exist yet can be turned away, so existing users always get back in. Admins are
+  // exempt so closing registration can never lock out the person who closed it.
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE id = ?1").bind(ghUser.id).first();
+  audit.source = "auth";
+  audit.user = { id: ghUser.id, login: ghUser.login };
+  if (!existing && !isAdmin(env, ghUser) && !(await registrationState(env)).open) {
+    audit.action = "auth_blocked_signup";
+    audit.error = { code: "registration_closed", message: "New registrations are closed." };
+    await revokeGitHubGrant(env, token); // no account was created, so keep no access
+    return fail("registration_closed");
+  }
+  audit.action = existing ? "auth_signin" : "auth_register";
 
   const now = Date.now();
   const tokenEnc = await encryptText(token, env.TOKEN_ENCRYPTION_KEY);
@@ -219,7 +234,7 @@ export async function getApiKeyUser(request, env) {
   const cached = keyCache.get(hash);
   if (cached !== undefined) return cached;
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS}, k.id AS key_id, k.last_used_at FROM api_keys k JOIN users u ON u.id = k.user_id
+    `SELECT ${USER_COLUMNS}, k.id AS key_id, k.name AS key_name, k.last_used_at FROM api_keys k JOIN users u ON u.id = k.user_id
      WHERE k.key_hash = ?1`,
   )
     .bind(hash)
@@ -228,8 +243,8 @@ export async function getApiKeyUser(request, env) {
     keyCache.set(hash, null, NEGATIVE_CACHE_TTL_MS);
     return null;
   }
-  const { key_id, last_used_at, ...user } = row;
-  const result = { user, keyId: key_id, lastUsedAt: last_used_at };
+  const { key_id, key_name, last_used_at, ...user } = row;
+  const result = { user, keyId: key_id, name: key_name, lastUsedAt: last_used_at };
   keyCache.set(hash, result, AUTH_CACHE_TTL_MS);
   return result;
 }
@@ -290,6 +305,7 @@ export async function deleteApiKey(env, userId, keyId) {
 
 export async function deleteAccount(env, userId) {
   forgetUser(userId);
+  await withAppTables(env, () => env.DB.prepare("DELETE FROM api_calls WHERE user_id = ?1").bind(userId).run());
   await env.DB.batch([
     env.DB.prepare("DELETE FROM key_usage WHERE user_id = ?1").bind(userId),
     env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?1").bind(userId),

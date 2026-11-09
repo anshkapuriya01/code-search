@@ -17,6 +17,7 @@ Code Search is a hosted MCP server and REST API. Every request needs an API key 
 
 - GET /v1/search?q=...&language=&min_stars=&include_archived=&page=&per_page= : up to 100 repositories, best matches first, then by stars. `matchLevel` is all_keywords, key_terms_plus, key_terms or most_key_terms.
 - GET /v1/repos/{owner}/{repo}/readme?max_chars= : README text.
+- Requests are interpreted by AI when available, otherwise by rules; query.interpretedBy says which ("ai" or "rules").
 - Errors: JSON {error, code, requestId}. 429 includes Retry-After. Codes: invalid_params, invalid_api_key, signin_required, github_reauth, not_found, rate_limited, too_many_requests, github_error.
 
 ## Rate limits

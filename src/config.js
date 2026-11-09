@@ -10,6 +10,12 @@ export function githubOAuthBase(env) {
   return (env.GITHUB_OAUTH_BASE || "https://github.com").replace(/\/+$/, "");
 }
 
+/** True for the GitHub accounts listed (by numeric id, which never changes) in ADMIN_GITHUB_IDS. */
+export function isAdmin(env, user) {
+  if (!user || !env.ADMIN_GITHUB_IDS) return false;
+  return String(env.ADMIN_GITHUB_IDS).split(",").map((id) => id.trim()).includes(String(user.id));
+}
+
 const REQUIRED = ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "TOKEN_ENCRYPTION_KEY"];
 
 /** Names of required settings that are missing (never their values). */

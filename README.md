@@ -6,6 +6,7 @@ repositories that match, drops low-star projects and keyword-stuffed spam, and p
 - **MCP server** at `/mcp` (Streamable HTTP) with two tools: `search_repositories` and `get_repository_readme`.
 - **REST API** at `/v1/search` and `/v1/repos/{owner}/{repo}/readme`, described in `/openapi.json` and `/llms.txt`.
 - **Landing page** at `/`, **dashboard** at `/app/` (live search, agent setup, API keys, usage analytics, account), **docs** at `/docs/`.
+- **AI query understanding** with Cloudflare Workers AI, and an **admin console** at `/admin/`.
 - **Sign in with GitHub** is the only login. Each user's searches run on their own GitHub quota (30/min), so the
   service scales with its users and stays free to run.
 - Runs on **Cloudflare Workers + D1 + static assets**.
@@ -22,7 +23,11 @@ claude mcp add --transport http --scope user code-search https://codesearch.ampl
 
 ## How search works
 
-1. **Understand the request.** Phrases are normalised ("self hosted", "host it on my own server", "on-prem" all
+1. **Understand the request.** Cloudflare Workers AI reads the request and proposes key terms, descriptive words,
+   synonyms and context (`src/ai.js`). Its answer is checked against the request, so it cannot drop a needed word, invent a
+   requirement or add a GitHub qualifier. Llama 3.3 70B is used for the first 60% of the daily budget, then Llama 3.1 8B.
+   Plans are remembered for 24 hours. If AI is unavailable, slow, wrong or over budget, the rules below take over, and
+   `query.interpretedBy` says which one ran. The rules: phrases are normalised ("self hosted", "host it on my own server", "on-prem" all
    become `self-hosted`; "e-mail" becomes `email`). Phrases about the user rather than the project ("for my
    business", "for my team", "for free") are set aside and returned in `query.context`. A product named as a
    reference ("like slack", "alternative to google analytics") becomes a ranking hint, or the subject when nothing
@@ -53,19 +58,30 @@ browser for its live demo.
 | Runaway clients | 120 requests/min per account across REST and MCP (Cloudflare rate-limit binding, with an in-memory fallback). |
 | CPU | The heaviest search measured about 1.5 ms of CPU. |
 | Debugging | Every API response has `X-Request-Id` and `Server-Timing`. |
+| AI cost | At most `AI_DAILY_NEURONS` (9,000 of the 10,000 free) a day, counted from each response's token usage. A plan costs about 21 neurons on the larger model and 4 on the smaller. |
+| Log size | The API call log keeps at most 30,000 calls for 90 days, so it cannot fill D1's 500 MB. Each call adds two background row writes. |
 
 Cloudflare's free plan allows 100,000 Worker requests a day; static pages do not count. Past that, the Workers paid
 plan ($5/month) covers 10 million requests.
+
+## Admin console
+
+`/admin/` is for the GitHub accounts listed by numeric id in `ADMIN_GITHUB_IDS` (`wrangler.toml`); it does not exist for anyone else.
+
+- **Close new registrations** blocks accounts that do not exist yet and hides sign-up buttons site-wide. Existing users and admins can still sign in.
+- **Users** shows each account, when it joined, its last call and its totals.
+- **API calls** lists every call by a signed-in user (REST, MCP, dashboard, sign-ins, key changes) with what was searched, how it was understood and what was returned. Only two background checks are left out: `GET /api/me` and `GET /api/usage`. Calls without a valid account cannot be attributed and are not stored. API keys, tokens and IP addresses are never logged. Deleting an account deletes its log.
 
 ## Deploy
 
 Already deployed once? Then this is all:
 
 ```sh
+npm run db:migrate:remote
 npm run deploy
 ```
 
-This version adds the `key_usage` table for the dashboard's Usage tab, so run `npm run db:migrate:remote` once before `npm run deploy`. If you forget, the Worker creates the table itself on the first call (and logs a warning), so tracking still works. Each API call adds one background D1 upsert (counts per key, hour and endpoint, kept 90 days; no query text). If Cloudflare rejects the `[[ratelimits]]` block on your plan,
+Migrations add `key_usage` and the admin, log and AI tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning). If you forget, the Worker creates the table itself on the first call (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
 delete it from `wrangler.toml`; the Worker falls back to its in-memory limiter.
 
 First deploy from scratch: `npx wrangler login`, `npx wrangler d1 create starscout` (put the id in `wrangler.toml`),
@@ -90,9 +106,10 @@ To try the whole dashboard (sign-in, search, keys, Usage) without a GitHub OAuth
 ## Tests
 
 ```sh
-npm test            # 54 unit tests: parsing, matching, ranking, search flow, caches, formatting, crypto
-npm run test:e2e    # 33 checks on the real Worker + local D1 with a mock GitHub login: OAuth, keys, REST v1,
-                    # MCP (modern and legacy), caching, errors; searches hit the real GitHub API
+npm test            # unit tests: parsing, AI plan checks and budget, matching, ranking, search flow, audit log, crypto
+npm run test:e2e    # the real Worker + local D1 with a mock GitHub login: OAuth, keys, REST v1, MCP, admin console,
+                    # closed registration, call log; searches hit the real GitHub API. AI is off by default;
+                    # E2E_REAL_AI=1 also runs one search through real Workers AI (uses a few neurons).
 ```
 
 ## Security

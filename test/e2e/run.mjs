@@ -26,8 +26,10 @@ const mock = { searchCalls: 0, upstreamCalls: 0, revokedGrants: [], upstreamCach
 const USERS = {
   "mock-token": { id: 1001, login: "mockuser", name: "Mock User", avatar_url: "https://avatars.githubusercontent.com/u/1" },
   "revoked-token": { id: 1002, login: "revokeduser", name: null, avatar_url: null },
+  "admin-token": { id: 2001, login: "theadmin", name: "The Admin", avatar_url: null },
+  "newcomer-token": { id: 3001, login: "newcomer", name: "New Comer", avatar_url: null },
 };
-const CODES = { good: "mock-token", revoked: "revoked-token" };
+const CODES = { good: "mock-token", revoked: "revoked-token", admin: "admin-token", newcomer: "newcomer-token" };
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, MOCK);
@@ -169,6 +171,31 @@ function printTop(label, data) {
   }
 }
 
+// Runs one search through real Workers AI (a few neurons). Separate from the main run, which keeps AI off so
+// its results are repeatable and it stays within GitHub's anonymous search limit.
+async function realAiCheck(client) {
+  console.log("Real Workers AI");
+  // The first call through wrangler's connection to Cloudflare can take far longer than a deployed Worker's.
+  for (let i = 0; i < 3; i++) await client.req(`/api/search?q=ratelimitme+warm+up+${i}`);
+  await step("real Workers AI understands a request and the search returns results", async () => {
+    const r = await client.req("/v1/search?q=" + encodeURIComponent("project management software for small teams") + "&per_page=5");
+    assert.equal(r.status, 200, r.text);
+    console.log("      AI:", JSON.stringify({ by: r.json.query.interpretedBy, status: r.json.query.aiStatus, keyTerms: r.json.query.keyTerms, descriptive: r.json.query.descriptiveWords, synonyms: r.json.query.synonyms, context: r.json.query.context }));
+    assert.equal(r.json.query.interpretedBy, "ai");
+    assert.ok(r.json.items.length > 0);
+    printTop("project management software for small teams", r.json);
+  });
+  await step("the neurons it used are counted", async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    const admin = new Client();
+    await admin.login("admin");
+    const { ai } = (await admin.req("/api/admin/summary")).json;
+    console.log("      usage today:", JSON.stringify(ai));
+    assert.ok(ai.neurons > 0 && ai.calls > 0);
+    assert.equal(ai.enabled, true);
+  });
+}
+
 // ---------- Run ----------
 
 const persist = mkdtempSync(path.join(tmpdir(), "code-search-e2e-"));
@@ -190,6 +217,8 @@ async function main() {
     TOKEN_ENCRYPTION_KEY: ENC_KEY,
     GITHUB_OAUTH_BASE: MOCK,
     GITHUB_API_BASE: MOCK,
+    ADMIN_GITHUB_IDS: "2001",
+    AI_DAILY_NEURONS: process.env.E2E_REAL_AI ? "9000" : "0", // 0 keeps normal test runs from spending neurons
   };
   dev = spawn(
     wrangler,
@@ -287,7 +316,12 @@ async function main() {
     const me = await alice.req("/api/me");
     assert.equal(me.status, 200);
     assert.deepEqual(me.json.user, { login: "mockuser", name: "Mock User", avatarUrl: "https://avatars.githubusercontent.com/u/1" });
+    assert.equal(me.json.isAdmin, false);
   });
+  if (process.env.E2E_REAL_AI) {
+    await realAiCheck(alice);
+    return;
+  }
   await step("GitHub token is stored encrypted, session token only as a hash", async () => {
     const out = execFileSync(wrangler, ["d1", "execute", "starscout", "--local", "--persist-to", persist, "--json",
       "--command", "SELECT u.token_enc, s.id_hash FROM users u JOIN sessions s ON s.user_id = u.id WHERE u.id = 1001"], { cwd: ROOT, env: { ...process.env, CI: "1" } });
@@ -544,6 +578,122 @@ async function main() {
     assert.ok(!JSON.stringify(r.json).includes("state management"), "query text is never stored");
   });
 
+  console.log("Admin console and API call log");
+  const admin = new Client();
+  await admin.login("admin");
+  const newest = async (filter = "") => (await admin.req(`/api/admin/calls?${filter}`)).json.calls;
+  await step("the admin API does not exist for anonymous or ordinary users", async () => {
+    for (const path of ["summary", "users", "calls", "calls/1"]) {
+      assert.equal((await anon.req(`/api/admin/${path}`)).status, 404, path);
+      assert.equal((await alice.req(`/api/admin/${path}`)).status, 404, path);
+    }
+    assert.equal((await alice.req("/api/admin/registration", { method: "POST", body: { open: false }, origin: true })).status, 404);
+    assert.equal((await admin.req("/api/me")).json.isAdmin, true);
+  });
+  await step("every kind of call appears with who made it and what was searched", async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    const calls = await newest();
+    const find = (action, q) => calls.find((c) => c.action === action && (!q || c.query === q));
+    const rest = find("rest_search", "state management react");
+    assert.ok(rest, JSON.stringify(calls.slice(0, 5)));
+    assert.equal(rest.login, "mockuser");
+    assert.equal(rest.userId, 1001);
+    assert.equal(rest.outcome, "ok");
+    assert.ok(rest.resultCount > 0);
+    assert.ok(find("mcp_search", "self-hosted kanban board with markdown support"), "MCP searches");
+    assert.ok(find("mcp_readme"), "MCP READMEs");
+    assert.ok(find("rest_readme", "sxyazi/yazi"), "REST READMEs");
+    assert.ok(find("mcp:tools/list"), "MCP protocol calls");
+    assert.ok(find("POST /api/keys"), "dashboard calls");
+    assert.ok(find("auth_register"), "registrations");
+    assert.ok(calls.some((c) => c.outcome === "limited" && c.status === 429), "rate-limited calls");
+    assert.ok(calls.some((c) => c.action === "mcp_search" && c.outcome !== "ok" && c.status === 200), "MCP tool errors that return HTTP 200");
+    assert.ok(calls.some((c) => c.status === 400), "invalid requests");
+    assert.ok(!calls.some((c) => c.action === "GET /api/me" || c.action === "GET /api/usage"), "background checks are left out");
+  });
+  await step("a call's details show what was sent and what was returned", async () => {
+    const [row] = await newest("kind=search&user=1001&q=state%20management&outcome=ok");
+    assert.ok(row);
+    const { call } = (await admin.req(`/api/admin/calls/${row.id}`)).json;
+    assert.equal(call.request.q, "state management react");
+    assert.equal(call.response.understood.by, "rules");
+    assert.equal(call.response.understood.aiStatus, "ai_disabled");
+    assert.ok(call.response.items.length > 0);
+    assert.ok(call.response.items.every((i) => typeof i.name === "string" && Number.isInteger(i.stars)));
+    assert.equal((await admin.req("/api/admin/calls/99999999")).status, 404);
+  });
+  await step("the log and the admin API never expose secrets", async () => {
+    const all = JSON.stringify(await newest());
+    const out = execFileSync(wrangler, ["d1", "execute", "starscout", "--local", "--persist-to", persist, "--json", "--command", "SELECT * FROM api_calls"], { cwd: ROOT, env: { ...process.env, CI: "1" }, maxBuffer: 50_000_000 }).toString();
+    const users = (await admin.req("/api/admin/users")).json;
+    for (const text of [all, out, JSON.stringify(users)]) {
+      assert.ok(!text.includes(apiKey), "API key");
+      assert.ok(!text.includes("mock-token"), "GitHub token");
+      assert.ok(!text.includes("token_enc"), "token column");
+      assert.ok(!text.includes("key_hash"), "key hash");
+    }
+  });
+  await step("users list shows activity and can be searched; filters are validated", async () => {
+    const { users } = (await admin.req("/api/admin/users")).json;
+    const u = users.find((x) => x.login === "mockuser");
+    assert.equal(u.id, 1001);
+    assert.ok(u.calls > 5 && u.searches > 3 && u.keys === 1 && u.lastCallAt > 0);
+    assert.deepEqual((await admin.req("/api/admin/users?q=mock")).json.users.map((x) => x.login), ["mockuser"]);
+    assert.deepEqual((await admin.req("/api/admin/users?q=%25")).json.users, [], "% is a literal, not a wildcard");
+    assert.equal((await admin.req("/api/admin/calls?source=evil")).status, 400);
+    assert.equal((await admin.req("/api/admin/calls?before=abc")).status, 400);
+    assert.equal((await admin.req("/api/admin/calls?q=%27%20OR%201%3D1%20--")).json.calls.length, 0, "text is bound, not concatenated");
+    const summary = (await admin.req("/api/admin/summary")).json;
+    assert.ok(summary.users.total >= 3 && summary.calls.searchesLast24h > 3);
+    assert.equal(summary.registration.open, true);
+    assert.equal(summary.ai.enabled, Boolean(process.env.E2E_REAL_AI));
+  });
+  await step("changing registration needs same-origin and a valid body", async () => {
+    assert.equal((await admin.req("/api/admin/registration", { method: "POST", body: { open: false } })).status, 403);
+    assert.equal((await admin.req("/api/admin/registration", { method: "POST", body: { open: "no" }, origin: true })).status, 400);
+    assert.equal((await admin.req("/api/admin/registration", { origin: true })).status, 405);
+  });
+  await step("closing registration blocks new users, keeps existing users and admins, and reopening works", async () => {
+    const closed = await admin.req("/api/admin/registration", { method: "POST", body: { open: false }, origin: true });
+    assert.equal(closed.status, 200);
+    assert.equal(closed.json.registration.open, false);
+    assert.equal(closed.json.registration.updatedBy, "theadmin");
+
+    const stranger = new Client();
+    const blocked = await stranger.login("newcomer");
+    assert.equal(blocked.headers.get("location"), "/app/?error=registration_closed");
+    assert.ok(!stranger.cookies.has("cs_session"), "no session for a blocked sign-up");
+    assert.ok(mock.revokedGrants.includes("newcomer-token"), "the unused GitHub grant is removed");
+    const none = execFileSync(wrangler, ["d1", "execute", "starscout", "--local", "--persist-to", persist, "--json", "--command", "SELECT COUNT(*) AS n FROM users WHERE id = 3001"], { cwd: ROOT, env: { ...process.env, CI: "1" } });
+    assert.equal(JSON.parse(none)[0].results[0].n, 0, "no account was created");
+
+    const returning = new Client();
+    assert.equal((await returning.login("good")).headers.get("location"), "/app/#search", "existing users still sign in");
+    assert.equal((await returning.req("/api/me")).status, 200);
+    const adminAgain = new Client();
+    assert.equal((await adminAgain.login("admin")).headers.get("location"), "/app/#search", "admins are never locked out");
+
+    await new Promise((r) => setTimeout(r, 500));
+    assert.ok((await newest("source=auth")).some((c) => c.action === "auth_blocked_signup" && c.login === "newcomer"), "the blocked attempt is logged");
+    assert.ok((await newest("source=admin")).some((c) => c.action === "admin_registration"), "the change itself is logged");
+
+    const reopened = await admin.req("/api/admin/registration", { method: "POST", body: { open: true }, origin: true });
+    assert.equal(reopened.json.registration.open, true);
+    const joined = new Client();
+    assert.equal((await joined.login("newcomer")).headers.get("location"), "/app/#search");
+    assert.equal((await joined.req("/api/me")).status, 200);
+  });
+  await step("visitors and GitHub are told when sign-ups are closed", async () => {
+    const close = (open) => admin.req("/api/admin/registration", { method: "POST", body: { open }, origin: true });
+    await close(false);
+    await new Promise((r) => setTimeout(r, 16_000)); // other isolates' display cache
+    const me = await new Client().req("/api/me");
+    assert.equal(me.status, 401);
+    assert.equal(me.json.registrationOpen, false);
+    const login = await new Client().req("/auth/login");
+    assert.equal(new URL(login.headers.get("location")).searchParams.get("allow_signup"), "false");
+    await close(true);
+  });
   console.log("Revoking, logout, account deletion");
   await step("revoked key stops working; deleting someone else's/unknown key is 404", async () => {
     assert.equal((await alice.req(`/api/keys/${keyId}`, { method: "DELETE" })).status, 403, "needs same origin");
@@ -567,13 +717,13 @@ async function main() {
     assert.equal(k.status, 201);
     const del = await alice.req("/api/account/delete", { method: "POST", origin: true });
     assert.equal(del.status, 200);
-    assert.deepEqual(mock.revokedGrants, ["mock-token"]);
+    assert.ok(mock.revokedGrants.includes("mock-token"));
     assert.equal((await alice.req("/api/me")).status, 401);
     const r = await anon.req("/api/search?q=react", { headers: { Authorization: `Bearer ${k.json.key}` } });
     assert.equal(r.status, 401);
     const out = execFileSync(wrangler, ["d1", "execute", "starscout", "--local", "--persist-to", persist, "--json",
-      "--command", "SELECT (SELECT COUNT(*) FROM users WHERE id=1001) AS u, (SELECT COUNT(*) FROM sessions WHERE user_id=1001) AS s, (SELECT COUNT(*) FROM api_keys WHERE user_id=1001) AS k"], { cwd: ROOT, env: { ...process.env, CI: "1" } });
-    assert.deepEqual(JSON.parse(out)[0].results[0], { u: 0, s: 0, k: 0 });
+      "--command", "SELECT (SELECT COUNT(*) FROM users WHERE id=1001) AS u, (SELECT COUNT(*) FROM sessions WHERE user_id=1001) AS s, (SELECT COUNT(*) FROM api_keys WHERE user_id=1001) AS k, (SELECT COUNT(*) FROM api_calls WHERE user_id=1001) AS c"], { cwd: ROOT, env: { ...process.env, CI: "1" } });
+    assert.deepEqual(JSON.parse(out)[0].results[0], { u: 0, s: 0, k: 0, c: 0 }, "the call log is deleted with the account");
   });
 
   console.log(`\nAll ${passed} end-to-end checks passed. (Real GitHub searches used: ${mock.upstreamCalls})`);

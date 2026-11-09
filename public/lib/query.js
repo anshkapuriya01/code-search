@@ -66,12 +66,42 @@ const REWRITES = [
   [/\bvideo\s+(?:calls?|calling|meetings?)\b/g, "video conferencing"],
 ];
 
+// Fixed compounds that contain a filler word. Without this, "project management" is searched as just
+// "management" and "search engine" as just "engine". Each becomes one hyphenated, singular term.
+const COMPOUNDS = [
+  /\b(?:full[\s-]?text|code|vector|semantic|fuzzy|image|web|site|enterprise)[\s-]+search(?:[\s-]+engines?)?\b/g,
+  /\bsearch[\s-]+engines?\b/g,
+  /\bproject[\s-]+management\b/g,
+  /\bhelp[\s-]*desks?\b/g,
+  /\bfeature[\s-]+(?:flags?|toggles?)\b/g,
+  /\b(?:no|low)[\s-]+code\b/g,
+  /\bsource[\s-]+maps?\b/g,
+  /\bopen[\s-]+banking\b/g,
+];
+
+const joinCompound = (m) =>
+  ` ${m
+    .trim()
+    .replace(/[\s-]+/g, "-")
+    .replace(/-search-engines?$/, "-search")
+    .replace(/s$/, "")} `;
+
+/** Lower-cases text and rewrites known phrases to their one canonical term. */
+export function canonicalize(raw) {
+  let text = ` ${String(raw ?? "").toLowerCase()} `;
+  for (const [re, rep] of REWRITES) text = text.replace(re, ` ${rep} `);
+  for (const re of COMPOUNDS) text = text.replace(re, joinCompound);
+  return text;
+}
+
 // Who it is for and what it costs describe the user, not the project: "email for my business"
 // is about email. These phrases are removed and reported back as context.
-const AUDIENCE = String.raw`(?:business(?:es)?|compan(?:y|ies)|startups?|start-ups?|teams?|organi[sz]ations?|orgs?|agenc(?:y|ies)|firms?|offices?|famil(?:y|ies)|household|clients?|customers?|employees?|staff|colleagues|friends|users?|use|usage|needs?|purposes?|work|workplace|side\s+projects?|projects?|websites?|site|blog|enterprises?|ngos?|non-?profits?|schools?|students?|myself|me|us)`;
+const AUDIENCE = String.raw`(?:business(?:es)?|compan(?:y|ies)|startups?|start-ups?|teams?|organi[sz]ations?|orgs?|agenc(?:y|ies)|firms?|offices?|famil(?:y|ies)|household|clients?|customers?|employees?|staff|colleagues|friends|users?|use|usage|needs?|purposes?|work|workplace|side\s+projects?|projects?|enterprises?|ngos?|non-?profits?|schools?|students?|myself|me|us)`;
 const AUDIENCE_MOD = String.raw`(?:my|our|your|his|her|their|a|an|the|this|that|small|smaller|little|local|growing|own|new|whole|entire|tiny|medium|mid-sized|large|big|personal|internal|commercial|private|family|online|everyday|daily|non-commercial)`;
 const CONTEXT_PATTERNS = [
   new RegExp(String.raw`\b(?:for|in|at|within|across|by)\s+(?:${AUDIENCE_MOD}\s+){0,3}${AUDIENCE}\b`, "g"),
+  // "for my blog" describes the user; "comment system for blog" names what it plugs into.
+  /\b(?:for|on|in)\s+(?:my|our|your)\s+(?:own\s+|personal\s+|small\s+|new\s+)*(?:websites?|site|blog)\b/g,
   /\b(?:my|our|your)\s+(?:own\s+)?(?:small\s+)?(?:business|company|startup|team|organi[sz]ation|agency|firm)\b/g,
   /\bsmall\s+business(?:es)?\b/g,
   /\b(?:for|at)\s+(?:free|no\s+cost|zero\s+cost)\b|\bfree\s+of\s+(?:charge|cost)\b|\b(?:with\s+)?no\s+(?:cost|charges?|fees?|subscriptions?)\b|\bwithout\s+(?:paying|payment|any\s+cost|cost|fees?|a\s+subscription|subscriptions?)\b|\bcosts?\s+nothing\b|\bfree\s+(?:to\s+use|forever|tier|plan)\b|\b(?:totally|completely|100%)\s+free\b/g,
@@ -89,7 +119,7 @@ const BRAND_PREFIXES = new Set("google microsoft ms adobe apple amazon aws zoho 
 // its description never says "self-hosted").
 const MAIL_HINTS = ["mailserver", "smtp", "imap", "postfix", "dovecot", "webmail", "mta"];
 const HOSTED_HINTS = ["server", "docker", "homelab"];
-const CONCEPTS = {
+const CONCEPTS = Object.assign(Object.create(null), {
   email: { alts: ["mail", "mailserver", "smtp", "imap", "webmail"], hosted: "mail server", hints: MAIL_HINTS },
   mail: { alts: ["email", "mailserver", "smtp", "imap"], hosted: "mail server", hints: MAIL_HINTS },
   chat: { alts: ["messaging", "messenger", "team chat"], hosted: "chat server", hints: ["matrix", "xmpp"] },
@@ -129,12 +159,24 @@ const CONCEPTS = {
   alternative: { alts: ["alternatives", "replacement", "replace", "clone", "instead of"] },
   [SELF_HOSTED]: { alts: ["self host", "selfhost", "on premise", "on prem", "homelab"] },
   selfhosted: { alts: ["self host", "selfhost", "on premise", "homelab"] },
-};
+  "project-management": { alts: ["task management", "project manager"] },
+  "help-desk": { alts: ["helpdesk", "ticketing", "support ticket"] },
+  "feature-flag": { alts: ["feature toggle", "feature management"] },
+  "feature-toggle": { alts: ["feature flag", "feature management"] },
+  "no-code": { alts: ["nocode", "low-code"] },
+  "low-code": { alts: ["lowcode", "no-code"] },
+  "search-engine": { alts: ["full text search", "fulltext"] },
+  "full-text-search": { alts: ["search engine", "fulltext"] },
+  "vector-search": { alts: ["vector database", "similarity search"] },
+});
 
 /** The term plus the words that mean the same thing in a project description. */
-export function alternativesFor(term) {
-  return [term, ...(CONCEPTS[term]?.alts ?? [])];
+export function alternativesFor(term, synonyms) {
+  return [term, ...(CONCEPTS[term]?.alts ?? []), ...(synonyms?.[term] ?? [])];
 }
+
+export const isFillerWord = (t) => STOPWORDS.has(t);
+export const isDescriptiveWord = (t) => SOFT_WORDS.has(t);
 
 // GitHub qualifiers users may type directly, e.g. "license:mit" or "topic:cli".
 const ALLOWED_QUALIFIERS = new Set([
@@ -163,8 +205,7 @@ function pushWords(token, terms) {
 
 /** Plain text (no qualifiers or quotes): canonical phrases, context removal, reference products. */
 function understandText(raw, out) {
-  let text = ` ${raw.toLowerCase()} `;
-  for (const [re, rep] of REWRITES) text = text.replace(re, ` ${rep} `);
+  let text = canonicalize(raw);
   for (const re of CONTEXT_PATTERNS) {
     text = text.replace(re, (m) => {
       out.context.push(m.trim().replace(/\s+/g, " "));
@@ -204,12 +245,15 @@ function understandText(raw, out) {
  *   refs: string[]       products named as a reference ("like slack")
  *   context: string[]    phrases about the user, not the project ("for my business", "for free")
  *   altTerms: string[]|null  key terms rephrased with a related concept, for one extra GitHub query
+ *   altSearches: string[][]  every rephrasing to fetch extra candidates with
+ *   quoted: string[]     phrases the user put in quotes; always required
  *   qualifiers: {key, value, negated}[], ignored: string[]
  * }
  */
 export function parseQuery(input) {
   const text = String(input ?? "").slice(0, MAX_INPUT_LENGTH);
   const out = { terms: [], context: [], refs: new Set() };
+  const quoted = [];
   const qualifiers = [];
   const ignored = [];
   let plain = [];
@@ -234,7 +278,10 @@ export function parseQuery(input) {
     } else if (phrase !== undefined) {
       flush();
       const p = phrase.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 50);
-      if (p) out.terms.push(p);
+      if (p) {
+        out.terms.push(p);
+        quoted.push(p);
+      }
     } else if (word.length > 1 && word.startsWith("-")) {
       ignored.push(word); // excluding plain words is not supported
     } else {
@@ -271,20 +318,40 @@ export function parseQuery(input) {
   const coreOnly = keywords.filter((t) => !isSoft(t));
   const core = coreOnly.length ? coreOnly : keywords;
   const soft = coreOnly.length ? keywords.filter(isSoft) : [];
+  const altTerms = alternateTerms(core, soft);
   return {
     keywords,
     core,
     soft,
     refs: keywords.filter(isRef),
     context: [...new Set(out.context)],
-    altTerms: alternateTerms(core, soft),
+    altTerms,
+    altSearches: altTerms ? [altTerms] : [],
+    quoted,
     qualifiers,
     ignored,
   };
 }
 
+/** The request without GitHub qualifiers or excluded words: only the words that describe the project. */
+export function plainQueryText(input) {
+  const kept = [];
+  for (const m of String(input ?? "").slice(0, MAX_INPUT_LENGTH).matchAll(TOKEN_RE)) {
+    const [whole, , key, , phrase, word] = m;
+    if (key !== undefined) {
+      const k = key.toLowerCase();
+      if (!ALLOWED_QUALIFIERS.has(k) && !MANAGED_QUALIFIERS.has(k)) kept.push(whole);
+    } else if (phrase !== undefined) {
+      kept.push(phrase);
+    } else if (!(word.length > 1 && word.startsWith("-"))) {
+      kept.push(word);
+    }
+  }
+  return kept.join(" ").replace(/\s+/g, " ").trim();
+}
+
 /** Key terms with the first one that has a known related concept swapped for it. */
-function alternateTerms(core, soft) {
+export function alternateTerms(core, soft) {
   const wantsHosting = soft.includes(SELF_HOSTED) || soft.includes("selfhosted") || soft.includes("self-host");
   const i = core.findIndex((t) => CONCEPTS[t] && t !== SELF_HOSTED);
   if (i === -1) return null;
@@ -392,7 +459,7 @@ function isWordChar(ch) {
 }
 
 // Light stemming so "converter" finds "converting", "hosting" finds "hosted" and "tables" finds "table".
-function stem(term) {
+export function stem(term) {
   if (term.length <= 3 || term.includes(" ")) return term;
   if (term.endsWith("ing") && term.length > 6) return term.slice(0, -3);
   if (term.endsWith("ies") && term.length > 5) return term.slice(0, -3);
@@ -472,6 +539,15 @@ function bestHit(fields, alts) {
   return best;
 }
 
+// A word the model suggested counts for less than the user's own words, so a repository merely named
+// "issue-tracker" does not outrank one that says "project management".
+const MODEL_SYNONYM_WEIGHT = 0.75;
+
+function keyTermHit(fields, term, synonyms) {
+  const direct = bestHit(fields, alternativesFor(term));
+  return synonyms?.[term] ? Math.max(direct, MODEL_SYNONYM_WEIGHT * bestHit(fields, synonyms[term])) : direct;
+}
+
 const isSelfHostedTerm = (t) => t === SELF_HOSTED || t === "selfhosted" || t === "self-host";
 
 // Explicit requirements ("self-hosted", "like slack") count for more than flavour words ("simple").
@@ -518,7 +594,7 @@ function isCuratedList(repo) {
  */
 export function scoreRepo(repo, parsed) {
   const fields = fieldsOf(repo);
-  const core = parsed.core.map((t) => bestHit(fields, alternativesFor(t)));
+  const core = parsed.core.map((t) => keyTermHit(fields, t, parsed.synonyms));
   const soft = parsed.soft.map((t) => softHit(fields, t, parsed));
   let relevance = core.length ? core.reduce((a, b) => a + b, 0) / core.length : 0;
   const bonus = soft.reduce((sum, hit, i) => sum + softWeight(parsed.soft[i], parsed) * Math.min(hit, WEIGHT.lead), 0);

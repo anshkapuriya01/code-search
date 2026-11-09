@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin: Code Search</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f9f9f9">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="preload" href="/fonts/geist-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/site.css">
+  <script src="/js/boot.js"></script>
+  <script type="module" src="/js/admin.js"></script>
+</head>
+<body class="app">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav" id="nav">
+    <nav class="nav-inner" aria-label="Admin">
+      <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="34" height="25" draggable="false">Code Search</a>
+      <div class="nav-end">
+        <a class="btn btn-small" href="/app/">Dashboard</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main" class="app-main">
+    <div class="flash" id="flash" role="alert" hidden></div>
+
+    <div class="app-loading" id="loading" aria-label="Loading the admin console">
+      <div class="skel w60"></div>
+      <div class="skel big"></div>
+      <div class="skel"></div>
+    </div>
+
+    <section class="adm-denied" id="denied" hidden>
+      <h1 class="view-title">Page not found</h1>
+      <p><a class="link" href="/">Back to Code Search</a></p>
+    </section>
+
+    <div class="app-view" id="console" hidden>
+      <div class="view-head">
+        <h1 class="view-title">Admin</h1>
+        <p>Who uses Code Search, every API call they make, and who may join.</p>
+      </div>
+
+      <section class="card adm-registration" id="registration-card" aria-labelledby="registration-h">
+        <div>
+          <p class="adm-state" id="registration-state"></p>
+          <h2 id="registration-h">New user registration</h2>
+          <p id="registration-text"></p>
+          <p class="quiet" id="registration-updated"></p>
+        </div>
+        <button class="btn" id="registration-toggle" type="button"></button>
+      </section>
+
+      <div class="adm-stats" id="stats"></div>
+
+      <section class="card" aria-labelledby="users-h">
+        <div class="adm-head">
+          <h2 id="users-h">Users</h2>
+          <form class="adm-filters" id="users-form" role="search" autocomplete="off">
+            <label class="sr-only" for="users-q">Find a user</label>
+            <input class="adm-input" id="users-q" type="search" maxlength="100" placeholder="Login or name">
+            <button class="btn btn-small" type="submit">Find</button>
+          </form>
+        </div>
+        <div class="adm-scroll">
+          <table class="adm-table">
+            <thead><tr><th scope="col">User</th><th scope="col">Joined</th><th scope="col">Last call</th><th scope="col" class="num">Keys</th><th scope="col" class="num">Searches</th><th scope="col" class="num">Calls</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody id="users"></tbody>
+          </table>
+        </div>
+        <p class="adm-empty" id="users-empty" hidden>No users found.</p>
+        <div class="adm-more"><button class="btn btn-small" id="users-more" type="button" hidden>Show more users</button></div>
+      </section>
+
+      <section class="card" aria-labelledby="calls-h">
+        <div class="adm-head">
+          <div>
+            <h2 id="calls-h">API calls</h2>
+            <p class="quiet" id="log-note"></p>
+          </div>
+          <button class="btn btn-small" id="refresh" type="button">Refresh</button>
+        </div>
+        <form class="adm-filters adm-call-filters" id="calls-form" role="search" autocomplete="off">
+          <label class="sr-only" for="calls-q">Search text or login</label>
+          <input class="adm-input" id="calls-q" type="search" maxlength="100" placeholder="Search text or login">
+          <label class="field"><span>Type</span><select id="calls-kind"><option value="">All</option><option value="search">Searches</option><option value="readme">READMEs</option><option value="other">Other</option></select></label>
+          <label class="field"><span>Via</span><select id="calls-source"><option value="">All</option><option value="web">Dashboard</option><option value="rest">REST</option><option value="mcp">MCP</option><option value="auth">Sign-in</option><option value="admin">Admin</option></select></label>
+          <label class="field"><span>Outcome</span><select id="calls-outcome"><option value="">All</option><option value="ok">OK</option><option value="error">Error</option><option value="limited">Rate-limited</option></select></label>
+          <button class="btn btn-small" type="submit">Apply</button>
+        </form>
+        <p class="adm-user-filter" id="user-filter" hidden><span id="user-filter-text"></span> <button class="btn btn-small" id="user-filter-clear" type="button">Show everyone</button></p>
+        <div class="adm-scroll">
+          <table class="adm-table adm-calls">
+            <thead><tr><th scope="col">Time</th><th scope="col">User</th><th scope="col">Call</th><th scope="col">Searched</th><th scope="col" class="num">Results</th><th scope="col">Outcome</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead>
+            <tbody id="calls"></tbody>
+          </table>
+        </div>
+        <p class="adm-empty" id="calls-empty" hidden>No calls match.</p>
+        <div class="adm-more"><button class="btn btn-small" id="calls-more" type="button" hidden>Show older calls</button></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="dialog adm-detail" id="detail" aria-labelledby="detail-title">
+    <div class="adm-detail-head">
+      <h2 id="detail-title">API call</h2>
+      <form method="dialog"><button class="btn btn-small" type="submit">Close</button></form>
+    </div>
+    <div id="detail-body"></div>
+  </dialog>
+
+  <dialog class="dialog" id="confirm" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel" type="submit">Cancel</button>
+        <button class="btn btn-accent" value="ok" type="submit" id="confirm-ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

@@ -14,6 +14,7 @@ import {
   ServiceError,
 } from "./service.js";
 import { recordCall, outcomeOf } from "./usage.js";
+import { auditCaller, auditError, auditReadme, auditSearch } from "./audit.js";
 import { GitHubError } from "./search.js";
 import { QueryError, DEFAULT_MIN_STARS, MIN_STARS_FLOOR, MAX_PER_PAGE } from "../public/lib/query.js";
 import { DEFAULT_README_CHARS, MAX_README_CHARS } from "./readme.js";
@@ -37,8 +38,8 @@ export const TOOLS = [
     name: "search_repositories",
     title: "Search GitHub repositories",
     description:
-      "Find public GitHub repositories that match a plain-English description of what is needed. Filler words are " +
-      "dropped, phrases about the user ('for my business', 'for free') are treated as context, key terms or close " +
+      "Find public GitHub repositories that match a plain-English description of what is needed. The request is " +
+      "interpreted by AI (with a rule-based fallback), filler words are dropped, phrases about the user ('for my business', 'for free') are treated as context, key terms or close " +
       "synonyms must match, projects under min_stars are skipped, and results are ranked by how well their name, " +
       "topics and description match, then by stars. GitHub qualifiers such as license:mit, topic:cli, user:NAME or pushed:>2025-01-01 can be included in query. " +
       "Returns name, URL, stars, language, license, topics, description and last push date for each repository.",
@@ -100,7 +101,7 @@ export const TOOLS = [
 
 // ---------- HTTP entry ----------
 
-export async function handleMcp(request, env, ctx, url) {
+export async function handleMcp(request, env, ctx, url, audit) {
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) {
     return rpcHttp(403, rpcError(null, -32000, "Forbidden origin"));
@@ -141,15 +142,17 @@ export async function handleMcp(request, env, ctx, url) {
       }
       throw err;
     }
+    auditCaller(audit, caller, "mcp");
+    audit.action = `mcp:${msg.method.slice(0, 60)}`;
   }
 
-  if (modernVersion !== undefined) return handleModern(msg, params, modernVersion, request, caller, env, ctx, url);
-  return handleLegacy(msg, params, isNotification, request, caller, env, ctx, url);
+  if (modernVersion !== undefined) return handleModern(msg, params, modernVersion, request, caller, env, ctx, url, audit);
+  return handleLegacy(msg, params, isNotification, request, caller, env, ctx, url, audit);
 }
 
 // ---------- Modern (2026-07-28) ----------
 
-async function handleModern(msg, params, version, request, caller, env, ctx, url) {
+async function handleModern(msg, params, version, request, caller, env, ctx, url, audit) {
   const id = "id" in msg ? msg.id : null;
   if (!MODERN_VERSIONS.includes(version)) {
     return rpcHttp(400, rpcError(id, -32022, "Unsupported protocol version", {
@@ -176,7 +179,7 @@ async function handleModern(msg, params, version, request, caller, env, ctx, url
     case "tools/list":
       return rpcHttp(200, rpcResult(id, { resultType: "complete", tools: TOOLS, ttlMs: 3_600_000, cacheScope: "public", _meta: meta }));
     case "tools/call": {
-      const out = await callTool(params, caller, env, ctx, url);
+      const out = await callTool(params, caller, env, ctx, url, audit);
       if (out.protocolError) return rpcHttp(200, rpcError(id, out.protocolError.code, out.protocolError.message));
       return rpcHttp(200, rpcResult(id, { resultType: "complete", ...out.result, _meta: meta }));
     }
@@ -215,7 +218,7 @@ function checkHeaders(request, msg, version) {
 
 // ---------- Legacy (2025-11-25 and earlier) ----------
 
-async function handleLegacy(msg, params, isNotification, request, caller, env, ctx, url) {
+async function handleLegacy(msg, params, isNotification, request, caller, env, ctx, url, audit) {
   const headerVersion = request.headers.get("MCP-Protocol-Version");
   if (headerVersion && !LEGACY_VERSIONS.includes(headerVersion) && msg.method !== "initialize") {
     return rpcHttp(400, rpcError(isNotification ? null : msg.id, -32600, `Unsupported MCP-Protocol-Version: ${headerVersion}`));
@@ -239,7 +242,7 @@ async function handleLegacy(msg, params, isNotification, request, caller, env, c
     case "tools/list":
       return rpcHttp(200, rpcResult(id, { tools: TOOLS }));
     case "tools/call": {
-      const out = await callTool(params, caller, env, ctx, url);
+      const out = await callTool(params, caller, env, ctx, url, audit);
       if (out.protocolError) return rpcHttp(200, rpcError(id, out.protocolError.code, out.protocolError.message));
       return rpcHttp(200, rpcResult(id, out.result));
     }
@@ -250,9 +253,19 @@ async function handleLegacy(msg, params, isNotification, request, caller, env, c
 
 // ---------- Tools ----------
 
-async function callTool(params, caller, env, ctx, url) {
+async function callTool(params, caller, env, ctx, url, audit) {
+  const out = await runTool(params, caller, env, ctx, url, audit);
+  if (out.protocolError) audit.error = { code: String(out.protocolError.code), message: out.protocolError.message };
+  else if (out.result.isError && !audit.error) audit.error = { code: "tool_error", message: out.result.content[0].text };
+  return out;
+}
+
+async function runTool(params, caller, env, ctx, url, audit) {
   const name = params.name;
   const args = params.arguments && typeof params.arguments === "object" ? params.arguments : {};
+  audit.action = name === "search_repositories" ? "mcp_search" : name === "get_repository_readme" ? "mcp_readme" : audit.action;
+  audit.input = { tool: name, arguments: args };
+  audit.query = name === "search_repositories" ? args.query : name === "get_repository_readme" ? args.repo : null;
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return { protocolError: { code: -32602, message: `Unknown tool: ${name}` } };
 
@@ -273,15 +286,18 @@ async function callTool(params, caller, env, ctx, url) {
       const r = await searchFor(caller.user, sp, { env, ctx, origin: url.origin });
       noteKeyUse(env, ctx, caller.apiKey);
       recordCall(env, ctx, caller, "mcp_search", "ok", r.cached === true);
+      auditSearch(audit, r);
       return { result: { content: [{ type: "text", text: formatSearchText(r) }], structuredContent: r, isError: false } };
     }
     // get_repository_readme
     const r = await readmeFor(caller.user, args.repo, args.max_chars, { env });
     noteKeyUse(env, ctx, caller.apiKey);
     recordCall(env, ctx, caller, "mcp_readme", "ok", r.cached === true);
+    auditReadme(audit, r);
     return { result: { content: [{ type: "text", text: formatReadmeText(r) }], structuredContent: r, isError: false } };
   } catch (err) {
     recordCall(env, ctx, caller, name === "search_repositories" ? "mcp_search" : "mcp_readme", outcomeOf(err));
+    auditError(audit, err);
     if (err instanceof ServiceError || err instanceof GitHubError) {
       const retry = err.extra?.retryAfter ? ` Retry after ${err.extra.retryAfter} seconds.` : "";
       return toolError(`${err.message}${retry && !err.message.includes("seconds") ? retry : ""}`);

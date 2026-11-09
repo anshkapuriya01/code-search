@@ -187,19 +187,41 @@ function initReveals() {
   targets.forEach((el) => io.observe(el));
 }
 
-/** Resolves to the signed-in user or null; swaps sign-in links for dashboard links. */
-export const session = (async () => {
+/** One check per page view: who is signed in, and whether new users may sign up. */
+const authState = (async () => {
   try {
     const res = await fetch("/api/me", { credentials: "same-origin" });
-    if (!res.ok) return null;
-    return (await res.json()).user ?? null;
+    const body = await res.json().catch(() => null);
+    return { user: res.ok ? (body?.user ?? null) : null, registrationOpen: body?.registrationOpen !== false };
   } catch {
-    return null;
+    return { user: null, registrationOpen: true };
   }
 })();
 
+/** Resolves to the signed-in user or null. */
+export const session = authState.then((s) => s.user);
+/** Resolves to false when new sign-ups are closed. */
+export const registrationOpen = authState.then((s) => s.registrationOpen);
+
+function hideSignups() {
+  // The dashboard has its own closed state, including the way back in for existing users.
+  if (document.body.classList.contains("app")) return;
+  for (const a of document.querySelectorAll('a[href="/auth/login"], .announce')) a.classList.add("signup-closed");
+  const banner = document.createElement("p");
+  banner.className = "closed-banner";
+  banner.setAttribute("role", "status");
+  const link = document.createElement("a");
+  link.className = "link";
+  link.href = "/app/";
+  link.textContent = "Open your dashboard";
+  banner.append("New sign-ups are closed for now. Already have an account? ", link);
+  document.body.prepend(banner);
+}
+
+// Swaps sign-in links for dashboard links, or hides them while sign-ups are closed.
 function reflectSession() {
-  session.then((user) => {
+  authState.then(({ user, registrationOpen: open }) => {
+    if (!user && !open) hideSignups();
     if (!user) return;
     for (const a of document.querySelectorAll("[data-auth]")) {
       a.href = a.dataset.auth === "announce" ? "/app/#search" : "/app/";

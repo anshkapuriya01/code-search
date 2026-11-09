@@ -4,6 +4,7 @@
 import { decryptText, ConfigError } from "./crypto.js";
 import { parseSearchParams, describeQualifiers } from "../public/lib/query.js";
 import { searchRepositories } from "./search.js";
+import { interpretQuery } from "./ai.js";
 import { getReadme, parseRepo, parseMaxChars } from "./readme.js";
 import { getSession, getApiKeyUser, touchApiKey } from "./auth.js";
 import { WindowLimiter } from "./memo.js";
@@ -86,8 +87,9 @@ export function noteKeyUse(env, ctx, apiKey) {
 export async function searchFor(user, searchParams, { env, ctx, origin }) {
   const params = parseSearchParams(searchParams);
   if (!params.ok) throw new ServiceError(400, "invalid_params", params.error);
-  const opts = params.value;
   const token = await userToken(user, env);
+  const understood = await interpretQuery(params.value, { env, ctx, origin });
+  const opts = { ...params.value, parsed: understood.parsed };
   const result = await searchRepositories(opts, { token, env, ctx, origin });
   return {
     query: {
@@ -95,7 +97,10 @@ export async function searchFor(user, searchParams, { env, ctx, origin }) {
       keywords: opts.parsed.keywords,
       keyTerms: opts.parsed.core,
       descriptiveWords: opts.parsed.soft,
+      synonyms: opts.parsed.synonyms ?? {},
       context: opts.parsed.context,
+      interpretedBy: understood.interpretedBy,
+      aiStatus: understood.aiStatus,
       qualifiers: describeQualifiers(opts.parsed, opts.language),
       ignored: opts.parsed.ignored,
       language: opts.language,
