@@ -1,6 +1,0 @@
-node_modules/
-.wrangler/
-.dev.vars
-.taste-skill/
-__pycache__/
-.DS_Store
