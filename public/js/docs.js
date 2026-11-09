@@ -1,6 +1,6 @@
 // Docs: live origin in examples, agent setup tabs, copy buttons, scroll-spy navigation.
 
-import { AGENTS, mcpUrl, markSvg, copyText, PLACEHOLDER_KEY } from "/js/agents.js";
+import { AGENTS, mcpUrl, markSvg, copyText, showAgentPrompt, PLACEHOLDER_KEY } from "/js/agents.js";
 import { initChrome, scrollToEl } from "/js/motion.js";
 import { renderCode } from "/js/code.js";
 
@@ -50,6 +50,7 @@ function select(id) {
   $("agent-panel").setAttribute("aria-labelledby", `tab-${id}`);
   $("code-file").replaceChildren(markSvg(a.id), a.file);
   renderCode($("code-block"), a.snippet(url, PLACEHOLDER_KEY));
+  showAgentPrompt(a);
   $("code-note").textContent = a.note;
   $("copy-code").textContent = "Copy";
 }

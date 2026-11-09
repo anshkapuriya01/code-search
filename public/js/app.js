@@ -1,6 +1,6 @@
 // Dashboard: live search, agent setup with the user's own key, API keys and account.
 
-import { AGENTS, mcpUrl, markSvg, copyText, PLACEHOLDER_KEY } from "/js/agents.js";
+import { AGENTS, mcpUrl, markSvg, copyText, showAgentPrompt, PLACEHOLDER_KEY } from "/js/agents.js";
 import { stagger, initChrome } from "/js/motion.js";
 import { renderCode } from "/js/code.js";
 import { initUsage, decorateKeyRows } from "/js/usage-view.js";
@@ -338,6 +338,7 @@ function renderConnect() {
   $("agent-panel").setAttribute("aria-labelledby", `tab-${a.id}`);
   $("code-file").replaceChildren(markSvg(a.id), a.file);
   renderCode($("code-block"), a.snippet(url, key));
+  showAgentPrompt(a);
   $("code-note").textContent = a.note;
   $("copy-code").textContent = "Copy";
   $("curl-test").textContent = `curl -s -H "Authorization: Bearer ${key}" \\\n  "${location.origin}/v1/search?q=terminal+file+manager+in+rust&per_page=3"`;

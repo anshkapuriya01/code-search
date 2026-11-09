@@ -3,7 +3,7 @@
 // smooth FAQ and the hero search that carries your query through GitHub sign-in.
 
 import { parseQuery, buildQuery, DEFAULT_MIN_STARS } from "/lib/query.js";
-import { AGENTS, mcpUrl, markSvg, copyText, PLACEHOLDER_KEY } from "/js/agents.js";
+import { AGENTS, mcpUrl, markSvg, copyText, showAgentPrompt, PLACEHOLDER_KEY } from "/js/agents.js";
 import { initChrome, stagger, session, registrationOpen, reduced } from "/js/motion.js";
 import { renderCode } from "/js/code.js";
 
@@ -357,6 +357,7 @@ function initConnect() {
     $("code-file").replaceChildren(markSvg(a.id), a.file);
     renderCode($("code-block"), a.snippet(url, PLACEHOLDER_KEY));
     $("code-note").textContent = `${a.note} Replace ${PLACEHOLDER_KEY} with a key from your dashboard.`;
+    showAgentPrompt(a);
     $("copy-code").textContent = "Copy";
     stagger([$("code-block")], "chip-in");
   }

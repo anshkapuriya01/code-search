@@ -33,6 +33,7 @@
         <a href="/#how">Product</a><a href="/#limits">Rate limits</a><a href="/#agents">Agents</a><a href="/#pricing">Pricing</a><a href="/docs/" aria-current="page">Docs</a>
       </div>
       <div class="nav-end" id="nav-end">
+        <a class="btn btn-small" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span class="hide-m">Buy me a coffee</span></a>
         <a class="btn btn-ghost hide-m" href="/auth/login" data-auth="signin">Sign in</a>
         <a class="btn btn-accent btn-ticket hide-m" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Start searching</span></a>
         <button class="btn btn-small menu-btn" type="button" id="menu-open" aria-expanded="false" aria-controls="menu">Menu</button>
@@ -47,6 +48,7 @@
     <a href="/#pricing">Pricing</a>
     <a href="/docs/">Docs</a>
     <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a>
+    <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
   </div>
 
   <div class="docs-mobile-nav"><label class="sr-only" for="docs-jump">Jump to section</label><select id="docs-jump"><optgroup label="Get started"><option value="introduction">Introduction</option><option value="quickstart">Quickstart</option><option value="dashboard">Search in the dashboard</option><option value="queries">Writing good queries</option><option value="results">Reading the results</option></optgroup><optgroup label="Agents"><option value="keys">API keys</option><option value="mcp">MCP server</option><option value="agents">Agent setup</option></optgroup><optgroup label="API reference"><option value="rest">REST API</option><option value="params">Search parameters</option><option value="response">Response</option><option value="readme">README endpoint</option><option value="errors">Errors</option></optgroup><optgroup label="Limits"><option value="rate-limits">GitHub rate limits</option><option value="limits">Code Search limits</option><option value="caching">Caching</option></optgroup><optgroup label="Account"><option value="usage">Usage analytics</option><option value="security">Security and privacy</option><option value="delete">Delete your account</option><option value="machine">For machines</option></optgroup></select></div>
@@ -113,9 +115,10 @@
 <div class="connect doc-connect">
   <div class="connect-list"><div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div></div>
   <div class="window connect-code" role="tabpanel" id="agent-panel">
-    <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
+    <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-prompt">Copy prompt</button><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
     <pre class="code-block"><code id="code-block"></code></pre>
     <p class="code-note" id="code-note"></p>
+    <p class="code-note" id="code-prompt" hidden></p>
   </div>
 </div>
 <h3>Example prompts</h3>
@@ -246,6 +249,7 @@
       <div class="foot-brand">
         <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="44" height="32" draggable="false">Code Search</a>
         <h2>The easiest way to search GitHub.</h2>
+        <div class="foot-support"><a class="btn btn-small" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a></div>
         <pre class="ascii foot-ascii" data-ascii="ground" aria-hidden="true"></pre>
       </div>
       <div class="foot-cells">

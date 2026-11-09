@@ -60,6 +60,16 @@ def head(title, desc, path, extra_js, robots=None, jsonld=None, preload_img=None
     return out
 
 
+COFFEE_URL = "https://buymeacoffee.com/anshgrows"
+COFFEE_ICON = '<img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false">'
+
+
+def coffee(cls="btn", label_cls=""):
+    """The Buy Me a Coffee button. label_cls="hide-m" leaves only the logo on phones."""
+    label = f'<span class="{label_cls}">Buy me a coffee</span>' if label_cls else "<span>Buy me a coffee</span>"
+    return f'<a class="{cls}" href="{COFFEE_URL}" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee">{COFFEE_ICON}{label}</a>'
+
+
 NAV_LINKS = [("Product", "/#how"), ("Rate limits", "/#limits"), ("Agents", "/#agents"), ("Pricing", "/#pricing"), ("Docs", "/docs/")]
 
 
@@ -81,6 +91,7 @@ def nav(current=None, announce=True, home=False):
         {"".join(links)}
       </div>
       <div class="nav-end" id="nav-end">
+        {coffee("btn btn-small", "hide-m")}
         <a class="btn btn-ghost hide-m" href="/auth/login" data-auth="signin">Sign in</a>
         <a class="btn btn-accent btn-ticket hide-m" href="/auth/login" data-auth="start">{gh()}<span>Start searching</span></a>
         <button class="btn btn-small menu-btn" type="button" id="menu-open" aria-expanded="false" aria-controls="menu">Menu</button>
@@ -91,6 +102,7 @@ def nav(current=None, announce=True, home=False):
     <button class="btn btn-small menu-close" type="button" id="menu-close">Close</button>
     {menu_links}
     <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start">{gh()}<span>Sign in with GitHub</span></a>
+    {coffee("btn btn-big")}
   </div>
 """
 
@@ -102,6 +114,7 @@ def footer():
       <div class="foot-brand">
         <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="44" height="32" draggable="false">Code Search</a>
         <h2>The easiest way to search GitHub.</h2>
+        <div class="foot-support">{coffee("btn btn-small")}</div>
         <pre class="ascii foot-ascii" data-ascii="ground" aria-hidden="true"></pre>
       </div>
       <div class="foot-cells">
@@ -218,6 +231,7 @@ def landing():
       <div class="hero-cta rise" data-i="3">
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start">{gh()}<span>Sign in with GitHub</span></a>
         <a class="btn btn-big" href="#agents">Connect an agent</a>
+        {coffee("btn btn-big")}
       </div>
 
       <form class="finder rise" id="finder" data-i="4" role="search" autocomplete="off">
@@ -506,9 +520,10 @@ sort=stars order=desc</pre></div>
             <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
           </div>
           <div class="window connect-code rise" data-i="1" role="tabpanel" id="agent-panel">
-            <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
+            <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-prompt">Copy prompt</button><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
             <pre class="code-block"><code id="code-block"></code></pre>
             <p class="code-note" id="code-note"></p>
+            <p class="code-note" id="code-prompt" hidden></p>
           </div>
         </div>
       </div>
@@ -613,6 +628,8 @@ sort=stars order=desc</pre></div>
           </article>
         </div>
         <p class="plans-foot">No card, no trial, no seat limits. Searches run on your own GitHub quota.</p>
+        <p class="plans-foot">Support us so that we can scale the compute and get you more useful tools.</p>
+        <div class="hero-cta rise">{coffee("btn btn-big")}</div>
       </div>
     </section>
 
@@ -648,7 +665,7 @@ sort=stars order=desc</pre></div>
         <p>Support us so that we can scale the compute and get you more useful tools.</p>
       </div>
       <div class="hero-cta rise" data-i="3">
-        <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
+        {coffee("btn btn-big")}
       </div>
       <p class="note-sign rise" data-i="3">happy searching</p>
     </section>
@@ -752,9 +769,10 @@ def docs():
 <div class="connect doc-connect">
   <div class="connect-list"><div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div></div>
   <div class="window connect-code" role="tabpanel" id="agent-panel">
-    <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
+    <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-prompt">Copy prompt</button><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
     <pre class="code-block"><code id="code-block"></code></pre>
     <p class="code-note" id="code-note"></p>
+    <p class="code-note" id="code-prompt" hidden></p>
   </div>
 </div>
 <h3>Example prompts</h3>

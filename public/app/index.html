@@ -32,10 +32,12 @@
         <a href="/docs/">Docs</a>
       </div>
       <div class="nav-end" id="app-user" hidden>
+        <a class="btn btn-small" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span class="hide-m">Buy me a coffee</span></a>
         <span class="user-cell"><img id="avatar" class="avatar" alt="" width="28" height="28"><span id="login"></span></span>
         <button class="btn btn-small" id="logout" type="button">Sign out</button>
       </div>
       <div class="nav-end" id="app-guest" hidden>
+        <a class="btn btn-small" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span class="hide-m">Buy me a coffee</span></a>
         <a class="btn btn-ghost hide-m" href="/docs/">Docs</a>
         <a class="btn btn-accent btn-ticket" href="/auth/login"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in</span></a>
       </div>
@@ -153,7 +155,7 @@
 
     <!-- Connect -->
     <section class="app-view" id="view-connect" hidden aria-labelledby="connect-title">
-      <div class="view-head"><h1 id="connect-title" class="view-title">Connect an agent</h1><p>Pick your agent, copy the snippet, paste it. Two tools appear: search_repositories and get_repository_readme.</p></div>
+      <div class="view-head"><h1 id="connect-title" class="view-title">Connect an agent</h1><p>Pick your agent, copy the snippet, paste it. Copy includes the usage prompt where the format allows it. Two tools appear: search_repositories and get_repository_readme.</p></div>
       <div class="amp-banner"><span class="amp-dot" aria-hidden="true"></span><p><strong>Made for agents on Amplfyd, launching soon.</strong> Code Search already works with every MCP client below.</p></div>
       <div class="connect">
         <div class="connect-list">
@@ -163,9 +165,10 @@
           <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
         </div>
         <div class="window connect-code" role="tabpanel" id="agent-panel">
-          <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
+          <div class="code-head"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="code-file" id="code-file"></p><button class="btn btn-small copy-btn" type="button" id="copy-prompt">Copy prompt</button><button class="btn btn-small copy-btn" type="button" id="copy-code">Copy</button></div>
           <pre class="code-block"><code id="code-block"></code></pre>
           <p class="code-note" id="code-note"></p>
+          <p class="code-note" id="code-prompt" hidden></p>
         </div>
       </div>
       <section class="card prompts-card" aria-labelledby="pr-h">
