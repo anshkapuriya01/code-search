@@ -74,15 +74,18 @@ export async function searchRepositories(opts, { token, env, ctx, origin, userId
 
   const { page, perPage } = opts;
   const start = (page - 1) * perPage;
+  // Trending picks from the library go first. They are applied after the cache, so library edits show at once.
+  const items = pinFirst(opts.pinned, full.items);
   return {
     mode: full.mode,
     matchLevel: full.matchLevel,
-    total: full.items.length,
+    total: items.length,
     page,
     perPage,
-    hasMore: start + perPage < full.items.length,
+    hasMore: start + perPage < items.length,
     incomplete: full.incomplete,
-    items: full.items.slice(start, start + perPage),
+    items: items.slice(start, start + perPage),
+    trendingCount: opts.pinned?.length ?? 0,
     cached,
     rateLimit,
   };
@@ -223,6 +226,13 @@ async function githubSearch(q, { sortByStars, page = 1, perPage }, token, env) {
 
   console.error("GitHub search error", res.status, message);
   throw new GitHubError(502, `GitHub returned an error (${res.status}). Please try again.`, { code: "github_error" });
+}
+
+/** Puts the pinned repositories first and removes them from the rest, so nothing shows twice. */
+export function pinFirst(pinned, items) {
+  if (!pinned?.length) return items;
+  const names = new Set(pinned.map((p) => p.name.toLowerCase()));
+  return [...pinned, ...items.filter((it) => !names.has(String(it.name).toLowerCase()))];
 }
 
 function toNumber(v) {

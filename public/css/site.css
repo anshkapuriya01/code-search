@@ -1431,3 +1431,124 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .adm-json { max-height: 280px; overflow: auto; padding: 12px; border-radius: var(--r-s); background: #f4f4f4; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .adm-results { display: grid; gap: 10px; padding-left: 22px; list-style: decimal; font-size: 14px; }
 .adm-results small { display: block; color: var(--ink-2); font-size: 13px; margin-top: 1px; }
+
+/* =====================================================================
+   Round 4: mobile dashboard menu, trending library, mobile alignment
+   ===================================================================== */
+
+/* Dashboard section dropdown (phones and small tablets) */
+.app-mobile-nav { display: none; }
+.app-nav-select { position: relative; }
+.app-nav-select::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg); pointer-events: none; }
+.app-nav-select select { appearance: none; -webkit-appearance: none; width: 100%; height: 44px; padding: 0 44px 0 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--paper); box-shadow: var(--shadow-s); font-size: 15px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.app-nav-select select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 920px) {
+  .app-mobile-nav:not([hidden]) { display: block; position: sticky; top: var(--nav-h); z-index: 30; padding: 8px var(--gut) 10px; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .app-main { border-top: 0; }
+}
+
+/* Trending results */
+.tr-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-right: 8px; border-radius: 6px; background: var(--accent); color: #fff; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: 2px; }
+.tr-why { display: block; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; color: var(--accent-ink); }
+.dep.is-trending:not(.is-open) { background: #fffbf8; }
+.dep-name { min-width: 0; }
+
+/* Landing: rate-limit demo on its own row */
+.limits-one { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 20px auto 0; }
+.source { text-align: center; }
+
+/* Admin: trending library */
+.adm-trending { display: grid; gap: 14px; }
+.adm-trending .adm-head { margin-bottom: 0; align-items: start; }
+.adm-trending .adm-head .quiet { max-width: 70ch; }
+.tr-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: var(--r); background: var(--bg); border: 1px solid var(--line); }
+.tr-field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); min-width: 0; }
+.tr-field small { font-weight: 400; color: var(--mute); }
+.tr-field .adm-input { width: 100%; min-width: 0; }
+.tr-wide { grid-column: 1 / -1; }
+.tr-small .adm-input { max-width: 120px; }
+.tr-actions { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.tr-actions[hidden], #tr-cancel[hidden] { display: none; }
+.tr-status:empty { display: none; }
+.tr-groups { display: grid; gap: 18px; }
+.tr-group h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.tr-rows { display: grid; gap: 8px; }
+.tr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.tr-main { display: grid; gap: 6px; min-width: 0; }
+.tr-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.tr-name { font-weight: 600; overflow-wrap: anywhere; }
+.tr-stars { font-family: var(--mono); font-size: 12.5px; color: var(--accent-ink); }
+.tr-desc { font-size: 13.5px; color: var(--ink-2); }
+.tr-keys { display: flex; flex-wrap: wrap; gap: 4px; }
+.tr-keys .chip { height: 22px; font-size: 11.5px; }
+.tr-btns { display: flex; gap: 6px; }
+@media (max-width: 640px) {
+  .tr-form { grid-template-columns: minmax(0, 1fr); }
+  .tr-row { grid-template-columns: minmax(0, 1fr); }
+  .tr-btns .btn { flex: 1; }
+  .adm-trending .adm-head .btn { width: 100%; }
+}
+
+/* Mobile alignment fixes */
+.adm-filters .btn, .adm-head .adm-filters .btn { height: 38px; }
+@media (max-width: 640px) {
+  /* Result rows: show the full repository name instead of cutting it off */
+  .dep > span:first-of-type { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+  .dep:not(.is-open) .dep-toggle { height: 100%; }
+  .dep .tr-badge { margin-right: 6px; }
+  /* Dashboard filters: two even columns, checkbox on its own row */
+  .filter-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-row .field { min-width: 0; }
+  .filter-row .field select { width: 100%; }
+  .filter-row .check { grid-column: 1 / -1; }
+  /* Rate-limit demo buttons: no lone button on a second row */
+  .meter-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .meter-actions .btn { width: 100%; padding: 0 10px; }
+  .meter-actions .btn:first-child { grid-column: 1 / -1; }
+  .meter-stats { justify-content: flex-start; gap: 6px 16px; }
+  /* Stats: 2 x 2 instead of four tall rows */
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { padding: 18px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stat:nth-child(2n), .stat:nth-child(2) { border-right: 0; }
+  .stat:nth-last-child(-n + 2) { border-bottom: 0; }
+  .stat:last-child { border-bottom: 0; }
+  /* Agent picker: two columns so the code is not pushed far down */
+  .agent-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .agent-tab { height: 44px; padding: 0 10px; gap: 8px; font-size: 14px; border-color: var(--line); background: var(--paper); min-width: 0; }
+  .agent-tab[aria-selected="true"] { border-color: var(--accent); }
+  .agent-tab[aria-selected="true"]::after { display: none; }
+  .agent-tab .mark { width: 18px; height: 18px; }
+  .code-head { gap: 8px; padding: 0 8px 0 12px; }
+  .code-head .dots { display: none; }
+  /* Amplfyd card: buttons line up with the text above */
+  .amp-cta .btn { flex: 1 1 100%; }
+  .amp-side { padding-top: 0; }
+  /* Hero spacing */
+  .hero-sub { margin-top: 18px; }
+  .hero-cta { margin-top: 24px; gap: 10px; }
+  .head { gap: 14px; }
+}
+@media (max-width: 360px) {
+  .agent-tabs { grid-template-columns: minmax(0, 1fr); }
+  .nav-end { gap: 6px; }
+  .brand { font-size: 15px; gap: 8px; }
+}
+@media (max-width: 640px) {
+  .showcase-bar { padding: 10px 2px 2px; }
+  .showcase-tabs { width: 100%; overflow: visible; }
+  .showcase-tabs span { flex: 1 1 0; justify-content: center; padding: 0 6px; font-size: 13px; }
+  .ustat-v { white-space: normal; overflow-wrap: anywhere; font-size: 20px; }
+  .ustat.is-main .ustat-v { font-size: 24px; }
+  .adm-call-filters .adm-input { flex: 1 1 100%; }
+  .adm-call-filters .field { flex: 1 1 calc(50% - 8px); }
+  .adm-call-filters .field select { flex: 1; min-width: 0; }
+  .adm-call-filters > .btn { flex: 1 1 100%; }
+  .adm-registration .btn { width: 100%; }
+}
+@media (max-width: 640px) and (min-width: 361px) {
+  .agent-tab:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (max-width: 920px) {
+  .adm-head .adm-filters { width: 100%; }
+  .adm-head .adm-filters .adm-input { flex: 1 1 auto; min-width: 0; }
+}

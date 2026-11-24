@@ -96,6 +96,7 @@ export function auditSearch(audit, body) {
       language: it.language,
       license: it.license,
       description: it.description ? it.description.slice(0, MAX_DESCRIPTION_CHARS) : null,
+      ...(it.trending ? { trending: it.useCase } : {}),
     })),
   });
 }

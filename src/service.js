@@ -8,6 +8,7 @@ import { interpretQuery } from "./ai.js";
 import { getReadme, parseRepo, parseMaxChars } from "./readme.js";
 import { getSession, getApiKeyUser, touchApiKey } from "./auth.js";
 import { ServiceError } from "./limits.js";
+import { trendingFor } from "./trending.js";
 
 export { ServiceError };
 
@@ -56,7 +57,8 @@ export async function searchFor(user, searchParams, { env, ctx, origin }) {
   const token = await userToken(user, env);
   const understood = await interpretQuery(params.value, { env, ctx, origin, user });
   const opts = { ...params.value, parsed: understood.parsed };
-  const result = await searchRepositories(opts, { token, env, ctx, origin, userId: user.id });
+  const pinned = await trendingFor(env, opts);
+  const result = await searchRepositories({ ...opts, pinned }, { token, env, ctx, origin, userId: user.id });
   return {
     query: {
       input: opts.input,
@@ -106,7 +108,7 @@ export function formatSearchText(r) {
   }
   const start = (r.page - 1) * r.perPage;
   lines.push(
-    `${r.total} repositories for "${q.input}" (${scope}); ${MATCH_TEXT[r.matchLevel] ?? r.matchLevel}. Best matches first, then by stars. Showing ${start + 1}-${start + r.items.length}.`,
+    `${r.total} repositories for "${q.input}" (${scope}); ${MATCH_TEXT[r.matchLevel] ?? r.matchLevel}. ${r.trendingCount ? `${r.trendingCount} hand-picked trending ${r.trendingCount === 1 ? "repository comes" : "repositories come"} first, then best matches` : "Best matches first"}, then by stars. Showing ${start + 1}-${start + r.items.length}.`,
   );
   lines.push(`Key terms: ${q.keyTerms.join(", ") || "none"}${q.descriptiveWords.length ? `; descriptive: ${q.descriptiveWords.join(", ")}` : ""}.`);
   if (q.context?.length) lines.push(`Treated as context, not searched for: ${q.context.join("; ")}.`);
@@ -115,7 +117,8 @@ export function formatSearchText(r) {
       .filter(Boolean)
       .join(" · ");
     const desc = it.description ? ` — ${it.description.replace(/\s+/g, " ").slice(0, 200)}` : "";
-    lines.push(`${start + i + 1}. ${it.name} (${facts})${desc}`);
+    const pick = it.trending ? ` [trending pick: ${it.useCase}]` : "";
+    lines.push(`${start + i + 1}. ${it.name}${pick} (${facts})${desc}`);
     lines.push(`   ${it.url}${it.topics.length ? ` · topics: ${it.topics.slice(0, 6).join(", ")}` : ""}`);
   });
   if (r.hasMore) lines.push(`More results: call again with page=${r.page + 1}.`);

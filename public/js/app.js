@@ -93,6 +93,7 @@ function show(view) {
     if (a.dataset.view === view) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
+  if ($("app-nav-select").querySelector(`option[value="#${view}"]`)) $("app-nav-select").value = `#${view}`;
   const tiles = document.querySelectorAll(`#view-${view} .tile`);
   stagger(tiles, "chip-in");
 }
@@ -147,6 +148,8 @@ async function init() {
   if (me) {
     $("app-tabs").hidden = false;
     $("admin-tab").hidden = !isAdmin;
+    $("app-mobile-nav").hidden = false;
+    if (isAdmin) $("app-nav-select").querySelector('option[value="/docs/"]').before(el("option", { value: "/admin/", text: "Admin" }));
     $("app-user").hidden = false;
     $("login").textContent = me.login;
     $("account-login").textContent = me.login;
@@ -158,6 +161,15 @@ async function init() {
   }
   route();
 }
+
+// Phones: the section tabs collapse into this dropdown.
+$("app-nav-select").addEventListener("change", (e) => {
+  const to = e.target.value;
+  if (to.startsWith("#")) {
+    if (location.hash !== to) location.hash = to;
+    window.scrollTo({ top: 0 });
+  } else location.href = to;
+});
 
 window.addEventListener("hashchange", () => {
   clearFlash();
@@ -220,10 +232,10 @@ function statusFor(pushedAt) {
 }
 
 const LEVEL = {
-  all_keywords: "every word matched",
-  key_terms_plus: "key terms and some descriptive words matched",
-  key_terms: "fewer than ten matched every word, so these match every key term",
-  most_key_terms: "fewer than ten matched every word, so these match most key terms",
+  all_keywords: "",
+  key_terms_plus: "",
+  key_terms: " Few projects matched every word, so close matches are included.",
+  most_key_terms: " Few projects matched every word, so close matches are included.",
 };
 
 function renderResults(d) {
@@ -232,22 +244,22 @@ function renderResults(d) {
   if (!d.items.length) {
     meta.replaceChildren(
       el("strong", { text: "No projects found." }),
-      ` Try fewer or different words${d.query.minStars > 10 ? `, or a lower minimum than ${fmt.format(d.query.minStars)} stars` : ""}.`,
+      ` Try fewer or different words${d.query.minStars > 10 ? `, or lower the min stars (now ${fmt.format(d.query.minStars)})` : ""}.`,
     );
     list.hidden = true;
     $("pager").hidden = true;
     return;
   }
+  const picks = d.trendingCount ?? 0;
   const bits = [
     el("strong", { text: `${fmt.format(d.total)} ${d.total === 1 ? "project" : "projects"}` }),
-    ` with ${fmt.format(d.query.minStars)}+ stars, ${LEVEL[d.matchLevel] ?? ""}. Best matches first, then by stars.`,
+    picks ? ` · ${picks} trending ${picks === 1 ? "pick" : "picks"} first, then the best matches.` : " · best matches first.",
+    LEVEL[d.matchLevel] ?? "",
   ];
-  if (d.query.interpretedBy === "ai") bits.push(el("span", { class: "quiet", text: " Understood by AI." }));
-  if (d.query.keyTerms.length) bits.push(el("span", { class: "quiet", text: ` Key terms: ${d.query.keyTerms.join(", ")}.` }));
-  if (d.query.context?.length) bits.push(el("span", { class: "quiet", text: ` Context, not searched: ${d.query.context.join("; ")}.` }));
+  if (d.query.keyTerms.length) bits.push(el("span", { class: "quiet", text: ` Looked for: ${d.query.keyTerms.join(", ")}.` }));
   if (d.query.ignored.length) bits.push(el("span", { class: "quiet", text: ` Ignored: ${d.query.ignored.join(" ")}.` }));
   for (const n of d.query.notes) bits.push(el("span", { class: "quiet", text: ` ${n}` }));
-  if (d.rateLimit?.remaining != null) bits.push(el("span", { class: "quiet", text: ` ${d.rateLimit.remaining} GitHub searches left this minute.` }));
+  if (d.rateLimit?.remaining != null) bits.push(el("span", { class: "quiet", text: ` ${d.rateLimit.remaining} searches left this minute.` }));
   meta.replaceChildren(...bits);
 
   const head = el(
@@ -265,9 +277,9 @@ function renderResults(d) {
     const home = safeUrl(it.homepage);
     const row = el(
       "div",
-      { class: `dep${i === 0 ? " is-open" : ""}`, role: "listitem" },
-      el("button", { class: "dep-toggle", type: "button", "aria-expanded": String(i === 0), "aria-label": `${it.name}, ${fmt.format(it.stars)} stars` }),
-      el("span", { text: it.name }),
+      { class: `dep${i === 0 ? " is-open" : ""}${it.trending ? " is-trending" : ""}`, role: "listitem" },
+      el("button", { class: "dep-toggle", type: "button", "aria-expanded": String(i === 0), "aria-label": `${it.trending ? "Trending: " : ""}${it.name}, ${fmt.format(it.stars)} stars` }),
+      el("span", { class: "dep-name" }, it.trending ? el("span", { class: "tr-badge", text: "Trending" }) : null, it.name),
       el("span", { class: "num col-stars", text: fmt.format(it.stars) }),
       el("span", { class: "dim col-lang", text: it.language ?? "—" }),
       el("span", { class: "dim col-lic", text: it.license ?? "No licence" }),
@@ -275,6 +287,7 @@ function renderResults(d) {
       el(
         "span",
         { class: "dep-detail" },
+        it.trending ? el("span", { class: "tr-why", text: `Trending pick for ${it.useCase}` }) : null,
         it.description ?? "No description.",
         it.topics.length ? el("span", { class: "topics", text: it.topics.slice(0, 8).join(" · ") }) : null,
         el(

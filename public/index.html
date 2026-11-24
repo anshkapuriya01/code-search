@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Code Search: search GitHub in plain words, free</title>
-  <meta name="description" content="Search GitHub in plain words with no setup. Sign in with GitHub and use it free. Best matches first, then by stars, spam and low-star repos removed, GitHub&#x27;s rate limits handled. MCP and REST for AI agents.">
+  <meta name="description" content="Search GitHub in plain words. Free, no setup. Best projects first, spam removed. Works with your AI agents too.">
   <link rel="canonical" href="https://codesearch.amplfyd.com/">
   <meta name="theme-color" content="#f9f9f9">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Code Search">
   <meta property="og:title" content="Code Search: search GitHub in plain words, free">
-  <meta property="og:description" content="Search GitHub in plain words with no setup. Sign in with GitHub and use it free. Best matches first, then by stars, spam and low-star repos removed, GitHub&#x27;s rate limits handled. MCP and REST for AI agents.">
+  <meta property="og:description" content="Search GitHub in plain words. Free, no setup. Best projects first, spam removed. Works with your AI agents too.">
   <meta property="og:url" content="https://codesearch.amplfyd.com/">
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -23,16 +23,16 @@
   <script src="/js/boot.js"></script>
   <script src="/lib/lenis.min.js" defer></script>
   <script type="module" src="/js/landing.js"></script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "name": "Code Search", "url": "https://codesearch.amplfyd.com/"}, {"@type": "SoftwareApplication", "name": "Code Search", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "url": "https://codesearch.amplfyd.com/", "description": "Search GitHub in plain words. Sign in with GitHub, no setup. Best matches first, then by stars, spam removed.", "offers": [{"@type": "Offer", "name": "Search pass", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Agent pass", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Builder pass", "price": "0", "priceCurrency": "USD"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Do I need to install or set up anything?", "acceptedAnswer": {"@type": "Answer", "text": "No. Sign in with GitHub in your browser and search from the dashboard straight away. You only touch a config file if you want an AI agent to use Code Search too, and that is one line."}}, {"@type": "Question", "name": "Is Code Search really free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. All three plans cost $0. Every search runs on your own GitHub account's search quota, so there is no shared bill to pass on to you."}}, {"@type": "Question", "name": "What are GitHub's search API rate limits?", "acceptedAnswer": {"@type": "Answer", "text": "GitHub allows 30 search requests a minute for a signed-in user (10 a minute for the code search endpoint) and 10 a minute for anonymous requests, counted per IP address. Any one search returns at most 1,000 results."}}, {"@type": "Question", "name": "Do all Code Search users share one GitHub limit?", "acceptedAnswer": {"@type": "Answer", "text": "No. Each person signs in with their own GitHub account and searches on their own token, so your 30 searches a minute belong to you alone."}}, {"@type": "Question", "name": "What happens when I hit the limit?", "acceptedAnswer": {"@type": "Answer", "text": "Code Search answers with status 429 and a Retry-After header that says exactly how long to wait, and the MCP tools pass that wait on to your agent. Repeated searches come from a ten-minute cache and do not use your quota."}}, {"@type": "Question", "name": "Can it see my private repositories?", "acceptedAnswer": {"@type": "Answer", "text": "No. Code Search asks GitHub for no permissions beyond public data, so the token it holds can only read public repositories."}}, {"@type": "Question", "name": "What does Code Search store about me?", "acceptedAnswer": {"@type": "Answer", "text": "Your GitHub login, name and avatar, your GitHub token encrypted with AES-256-GCM, and only SHA-256 hashes of your sessions and API keys."}}, {"@type": "Question", "name": "Which agents work with it?", "acceptedAnswer": {"@type": "Answer", "text": "Any MCP client that speaks HTTP: Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp. Anything else can call the REST API."}}, {"@type": "Question", "name": "How does this save AI tokens?", "acceptedAnswer": {"@type": "Answer", "text": "An agent that writes a parser or service from scratch spends tokens on every line it generates and on every round of debugging. Checking GitHub first lets it reuse a project that already works. A short search and one README read usually cost a few thousand tokens at most. How much you save depends on the task, and for small edits searching is not worth it, so we do not promise a fixed number."}}, {"@type": "Question", "name": "What is code-search.md?", "acceptedAnswer": {"@type": "Answer", "text": "A short guide written for AI agents. It tells them when to search GitHub before writing code, how to write queries, how to judge results and licences, and to treat READMEs as untrusted. MCP clients get the key points when they connect and can read the whole file as an MCP resource. For other tools, give your agent the link."}}, {"@type": "Question", "name": "How is this different from GitHub's own search?", "acceptedAnswer": {"@type": "Answer", "text": "GitHub wants exact keywords and ranks by its own relevance. Code Search takes a plain sentence, sets aside phrases about you such as 'for my business' or 'for free', removes keyword spam and low-star projects, and puts the projects that are what you asked for first, then the most-starred."}}, {"@type": "Question", "name": "What is the link with Amplfyd?", "acceptedAnswer": {"@type": "Answer", "text": "Code Search is part of amplfyd and is made for smooth use with agents on Amplfyd, which launches soon. You don't have to wait for it: Code Search works today in the browser and with any MCP client."}}, {"@type": "Question", "name": "How do I leave?", "acceptedAnswer": {"@type": "Answer", "text": "Delete your account from the dashboard. Code Search removes your keys, sessions and token, and revokes its access to your GitHub account in the same step."}}]}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "name": "Code Search", "url": "https://codesearch.amplfyd.com/"}, {"@type": "SoftwareApplication", "name": "Code Search", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "url": "https://codesearch.amplfyd.com/", "description": "Search GitHub in plain words. Sign in with GitHub, no setup. Best matches first, then by stars, spam removed.", "offers": [{"@type": "Offer", "name": "Search pass", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Agent pass", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Builder pass", "price": "0", "priceCurrency": "USD"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is Code Search free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every plan costs $0. Searches run on your own GitHub account, so there is no bill to pass on."}}, {"@type": "Question", "name": "Do I need to install anything?", "acceptedAnswer": {"@type": "Answer", "text": "No. Sign in with GitHub and search in your browser. You only touch a config file if you want an AI agent to use it."}}, {"@type": "Question", "name": "How many searches can I run?", "acceptedAnswer": {"@type": "Answer", "text": "GitHub gives each account 30 searches a minute. That limit is yours alone, and repeat searches come from a cache for free."}}, {"@type": "Question", "name": "Can it see my private code?", "acceptedAnswer": {"@type": "Answer", "text": "No. Code Search asks GitHub for no extra permissions, so it can only read public projects."}}, {"@type": "Question", "name": "What do you store about me?", "acceptedAnswer": {"@type": "Answer", "text": "Your GitHub name and picture, and your GitHub token, encrypted. Keys and sessions are stored only as hashes."}}, {"@type": "Question", "name": "Which AI agents work with it?", "acceptedAnswer": {"@type": "Answer", "text": "Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline, Amp and any other MCP client. Anything else can use the REST API."}}, {"@type": "Question", "name": "How is it different from GitHub search?", "acceptedAnswer": {"@type": "Answer", "text": "GitHub needs exact keywords. Code Search takes a normal sentence, removes spam and tiny projects, and shows the best matches first."}}, {"@type": "Question", "name": "What is trending first?", "acceptedAnswer": {"@type": "Answer", "text": "For popular topics we keep a hand-picked list of trending projects. When your search matches a topic, those projects show at the top, marked Trending."}}, {"@type": "Question", "name": "How do I delete my account?", "acceptedAnswer": {"@type": "Answer", "text": "Open the dashboard, go to Account and press Delete. Your keys, sessions and token are removed right away."}}]}]}</script>
 </head>
 <body class="home">
   <a class="skip" href="#main">Skip to content</a>
-  <div class="announce"><a href="/#amplfyd"><span>Made for agents on Amplfyd, launching soon. Code Search is free today: sign in with GitHub.</span><span class="pill-arrow" aria-hidden="true">→</span></a></div>
+  <div class="announce"><a href="/app/"><span>Free for everyone. Sign in with GitHub and start searching.</span><span class="pill-arrow" aria-hidden="true">→</span></a></div>
   <header class="nav" id="nav">
     <nav class="nav-inner" aria-label="Main">
       <a class="brand" href="/"><img src="/img/logo.svg" alt="" width="34" height="25" draggable="false">Code Search</a>
       <div class="nav-links">
-        <a href="#how">Product</a><a href="#limits">Rate limits</a><a href="#agents">Agents</a><a href="#pricing">Pricing</a><a href="/docs/">Docs</a>
+        <a href="#how">How it works</a><a href="#agents">Agents</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a>
       </div>
       <div class="nav-end" id="nav-end">
         <a class="btn btn-small" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span class="hide-m">Buy me a coffee</span></a>
@@ -44,10 +44,10 @@
   </header>
   <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu" data-lenis-prevent hidden>
     <button class="btn btn-small menu-close" type="button" id="menu-close">Close</button>
-    <a href="#how">Product</a>
-    <a href="#limits">Rate limits</a>
+    <a href="#how">How it works</a>
     <a href="#agents">Agents</a>
     <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
     <a href="/docs/">Docs</a>
     <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a>
     <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
@@ -66,13 +66,12 @@
         <span class="bracket b3">[ MCP ]</span>
         <span class="bracket b4">[ $0 ]</span>
       </div>
-      <a class="hero-pill rise" href="#pricing">Three plans. <b>All of them $0.</b><span class="pill-arrow" aria-hidden="true">→</span></a>
+      <a class="hero-pill rise" href="#pricing">Free. <b>No setup.</b><span class="pill-arrow" aria-hidden="true">→</span></a>
       <h1 id="hero-h"><span class="line"><span data-i="0">Search GitHub</span></span><span class="line"><span class="accent" data-i="1">in plain words</span></span></h1>
-      <p class="hero-sub rise" data-i="2">Sign in with GitHub and start searching. Nothing to install, no keys to set up, nothing to pay. Code Search turns your sentence into the right GitHub query, skips spam and low-star projects, and puts the best matches first, then the most-starred.</p>
+      <p class="hero-sub rise" data-i="2">Say what you need. Get the best projects first, with spam and tiny repos removed.</p>
       <div class="hero-cta rise" data-i="3">
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a>
         <a class="btn btn-big" href="#agents">Connect an agent</a>
-        <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
       </div>
 
       <form class="finder rise" id="finder" data-i="4" role="search" autocomplete="off">
@@ -86,16 +85,16 @@
           <button class="go" type="submit"><span id="go-label">Search</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
         <dl class="parse" aria-live="polite">
-          <dt>Key terms</dt><dd id="parse-key"></dd>
-          <dt>Descriptive</dt><dd id="parse-soft"></dd>
-          <dt>Dropped</dt><dd id="parse-drop"></dd>
-          <dt>Asks GitHub</dt><dd><pre class="parse-query" id="parse-query"></pre></dd>
+          <dt>Must have</dt><dd id="parse-key"></dd>
+          <dt>Nice to have</dt><dd id="parse-soft"></dd>
+          <dt>Skipped</dt><dd id="parse-drop"></dd>
+          <dt>Sent to GitHub</dt><dd><pre class="parse-query" id="parse-query"></pre></dd>
         </dl>
         <p class="parse-top" id="parse-top"></p>
       </form>
 
       <div class="window hero-window rise" id="results">
-        <div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="window-title"><b>code search</b> / results</p><span class="window-end">recorded run</span></div>
+        <div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="window-title"><b>code search</b> / results</p><span class="window-end">sample</span></div>
         <p class="board-caption" id="board-caption"></p>
         <div class="departures" id="departures" role="list"></div>
       </div>
@@ -104,19 +103,19 @@
 
     <!-- Works with -->
     <section class="sec logos" aria-label="Works with these agents">
-      <p class="logos-lead"><span>Works with <b>any MCP client</b>, or plain REST</span></p>
+      <p class="logos-lead"><span>Works with <b>your AI tools</b></span></p>
       <div class="marquee"><div class="marquee-track"><div class="marquee-group"><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg>Claude Code</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#codex"/></svg>Codex</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg>Cursor</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#grok"/></svg>Grok</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#copilot"/></svg>GitHub Copilot</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#windsurf"/></svg>Windsurf</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#gemini"/></svg>Gemini CLI</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cline"/></svg>Cline</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#amp"/></svg>Amp</span></div><div class="marquee-group" aria-hidden="true"><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg>Claude Code</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#codex"/></svg>Codex</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg>Cursor</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#grok"/></svg>Grok</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#copilot"/></svg>GitHub Copilot</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#windsurf"/></svg>Windsurf</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#gemini"/></svg>Gemini CLI</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cline"/></svg>Cline</span><span class="marquee-item"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#amp"/></svg>Amp</span></div></div></div>
     </section>
 
-    <!-- Showcase (goated framed panel) -->
+    <!-- Showcase -->
     <section class="sec showcase-sec" aria-labelledby="show-h">
       <div class="showcase rise">
         <div class="showcase-stage">
           <pre class="ascii is-white stage-ascii" data-ascii="cloud" aria-hidden="true"></pre>
           <div class="showcase-copy">
-            <p class="ticket-kicker">GitHub × every agent</p>
+            <p class="ticket-kicker">For you and your AI</p>
             <h2 id="show-h">Find the project,<br>not the keyword.</h2>
-            <p>One GitHub search for you in the browser and for nine agents over MCP. Ranked by the stars real developers gave it.</p>
+            <p>One search in your browser and inside your AI agent.</p>
           </div>
           <div class="orbit" role="img" aria-label="The GitHub mark at the centre, circled by Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp"><div class="orbit-core"><svg class="mark core-gh" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><img class="core-cs" src="/img/logo.svg" alt="" width="34" height="25" draggable="false"></div><div class="ring ring-1"><span class="t b-claude" title="Claude Code"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg></span></span><span class="t b-codex" title="Codex"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#codex"/></svg></span></span><span class="t b-cursor" title="Cursor"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg></span></span><span class="t b-grok" title="Grok"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#grok"/></svg></span></span></div><div class="ring ring-2"><span class="t b-copilot" title="GitHub Copilot"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#copilot"/></svg></span></span><span class="t b-windsurf" title="Windsurf"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#windsurf"/></svg></span></span><span class="t b-gemini" title="Gemini CLI"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#gemini"/></svg></span></span><span class="t b-cline" title="Cline"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cline"/></svg></span></span><span class="t b-amp" title="Amp"><span><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#amp"/></svg></span></span></div></div>
         </div>
@@ -127,16 +126,15 @@
       </div>
     </section>
 
-    <!-- 01 The old way -->
+    <!-- 01 Why -->
     <section class="sec" id="why" aria-labelledby="why-h">
-      <div class="strip"><span>[ 01 / 07 ] · <b>The old way</b></span><span class="strip-end">why it exists</span></div>
+      <div class="strip"><span>[ 01 / 07 ] · <b>Why</b></span><span class="strip-end">the problem</span></div>
       <div class="pad story">
         <div>
-          <p class="story-label"><span class="num-badge">01</span>GitHub search, as it is</p>
+          <p class="story-label"><span class="num-badge">01</span>GitHub search today</p>
           <h2 id="why-h" class="sr-only">Why Code Search exists</h2>
-          <p class="reading" data-read>GitHub's repository search wants keywords and qualifiers, not sentences. Type what you actually need and you get nothing back, or a pile of forks, tutorials and abandoned demos.</p>
-          <p class="reading" data-read>Some repositories stuff their description with thousands of keywords so they show up in every search. While testing we found one that was 64,765 characters long.</p>
-          <p class="reading" data-read>Code Search reads your sentence the way you meant it and hands back <span class="underline-hand" data-draw>the projects people star<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C 40 3, 90 3, 130 6 S 185 10, 198 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span>.</p>
+          <p class="reading" data-read>GitHub search wants exact keywords. Type a normal sentence and you get nothing, or a pile of junk.</p>
+          <p class="reading" data-read>Code Search understands what you mean and shows <span class="underline-hand" data-draw>the projects people star<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C 40 3, 90 3, 130 6 S 185 10, 198 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span>.</p>
         </div>
         <div class="story-media rise">
           <span class="corner-note" aria-hidden="true">the needle, not the haystack</span>
@@ -145,29 +143,29 @@
       </div>
     </section>
 
-    <!-- 02 No setup -->
+    <!-- 02 Steps -->
     <section class="sec" id="start" aria-labelledby="start-h">
-      <div class="strip"><span>[ 02 / 07 ] · <b>No setup</b></span><span class="strip-end">about a minute</span></div>
+      <div class="strip"><span>[ 02 / 07 ] · <b>Get started</b></span><span class="strip-end">about a minute</span></div>
       <div class="pad">
         <div class="head">
           <span class="tag">No setup</span>
           <h2 id="start-h" class="rise">Sign in. Type. <span class="accent">Done.</span></h2>
-          <p class="rise" data-i="1">No install, no config file, no token to copy. Your GitHub account is the only thing you need.</p>
+          <p class="rise" data-i="1">Your GitHub account is all you need.</p>
         </div>
         <ol class="tickets" id="tickets">
           <li class="ticket">
             <div class="ticket-main">
               <div>
-                <p class="ticket-kicker">Step 1 · ten seconds</p>
+                <p class="ticket-kicker">Step 1</p>
                 <h3>Sign in with GitHub</h3>
-                <p>One click on GitHub's own sign-in page. Code Search asks for no permissions, so the token it gets can only read public data.</p>
+                <p>One click. We only read public data.</p>
               </div>
               <div class="ticket-visual" aria-hidden="true">
                 <div class="mini-gh tilt"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg>Authorize Code Search</div>
                 <div class="mini">
-                  <div class="mini-row"><span>Permissions requested</span><span class="mono">none</span></div>
-                  <div class="mini-row"><span>Private repositories</span><span class="mono">no access</span></div>
-                  <div class="mini-row"><span>Your search quota</span><span class="mono">30 / min</span></div>
+                  <div class="mini-row"><span>Extra permissions</span><span class="mono">none</span></div>
+                  <div class="mini-row"><span>Private code</span><span class="mono">no access</span></div>
+                  <div class="mini-row"><span>Your searches</span><span class="mono">30 / min</span></div>
                 </div>
                 <span class="ok-chip">✓ Public data only</span>
               </div>
@@ -177,16 +175,15 @@
           <li class="ticket ticket-orange">
             <div class="ticket-main">
               <div>
-                <p class="ticket-kicker">Step 2 · plain words</p>
-                <h3>Describe the project</h3>
-                <p>Write it the way you would say it. “A terminal file manager written in Rust” works. GitHub qualifiers such as license:mit work too.</p>
+                <p class="ticket-kicker">Step 2</p>
+                <h3>Say what you need</h3>
+                <p>Write it like you would say it. “A file manager written in Rust” works.</p>
               </div>
               <div class="ticket-visual" aria-hidden="true">
                 <div class="mini"><span class="typing" id="typing">terminal file manager written in rust</span></div>
                 <div class="mini tilt-r">
-                  <div class="mini-row"><span>Key terms</span><span class="mono">terminal · file · manager</span></div>
-                  <div class="mini-row"><span>Descriptive</span><span class="mono">rust</span></div>
-                  <div class="mini-row"><span>Dropped</span><span class="mono">written · in</span></div>
+                  <div class="mini-row"><span>Must have</span><span class="mono">file · manager</span></div>
+                  <div class="mini-row"><span>Nice to have</span><span class="mono">rust</span></div>
                 </div>
               </div>
             </div>
@@ -195,9 +192,9 @@
           <li class="ticket ticket-pale">
             <div class="ticket-main">
               <div>
-                <p class="ticket-kicker">Step 3 · ranked</p>
-                <h3>Get the best matches first</h3>
-                <p>Low-star projects and keyword spam are already gone. Open any result for its description, topics, licence and links.</p>
+                <p class="ticket-kicker">Step 3</p>
+                <h3>Get the best first</h3>
+                <p>Trending picks and top matches come first. Spam is already gone.</p>
               </div>
               <div class="ticket-visual" aria-hidden="true">
                 <div class="mini">
@@ -205,143 +202,78 @@
                   <div class="mini-row"><span>kamiyaa/joshuto</span><span class="star">★ 3,745</span></div>
                   <div class="mini-row"><span>timhartmann7/omnyssh</span><span class="star">★ 1,264</span></div>
                 </div>
-                <span class="ok-chip">✓ 1 GitHub call</span>
+                <span class="ok-chip">✓ Spam removed</span>
               </div>
             </div>
             <div class="ticket-stub" aria-hidden="true"><span class="ticket-no">NO. 03</span><span class="admit">Admit one</span><span class="barcode"></span></div>
-          </li>
-          <li class="ticket ticket-white">
-            <div class="ticket-main">
-              <div>
-                <p class="ticket-kicker">Step 4 · optional</p>
-                <h3>Hand it to your agent</h3>
-                <p>Create an API key and paste one line into Claude Code, Codex, Cursor or any MCP client. Same search, inside your agent.</p>
-              </div>
-              <div class="ticket-visual" aria-hidden="true">
-                <div class="mini"><span class="mono">claude mcp add --transport http code-search …/mcp</span></div>
-                <div class="mini">
-                  <div class="mini-row"><span>search_repositories</span><span class="mono">tool</span></div>
-                  <div class="mini-row"><span>get_repository_readme</span><span class="mono">tool</span></div>
-                </div>
-              </div>
-            </div>
-            <div class="ticket-stub" aria-hidden="true"><span class="ticket-no">NO. 04</span><span class="admit">Admit one</span><span class="barcode"></span></div>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- 03 How it reads -->
+    <!-- 03 How it works -->
     <section class="sec" id="how" aria-labelledby="how-h">
-      <div class="strip"><span>[ 03 / 07 ] · <b>How it works</b></span><span class="strip-end">six steps</span></div>
+      <div class="strip"><span>[ 03 / 07 ] · <b>How it works</b></span><span class="strip-end">four steps</span></div>
       <div class="pad">
         <div class="head">
-          <span class="tag">Zero configuration</span>
-          <h2 id="how-h" class="rise">From a sentence to the <span class="accent">right repository</span></h2>
-          <p class="rise" data-i="1">People and agents write the way they talk. GitHub wants exact words. Code Search sits in between and does the translating.</p>
+          <span class="tag">Behind the scenes</span>
+          <h2 id="how-h" class="rise">From a sentence to the <span class="accent">right project</span></h2>
         </div>
         <div class="bento rise">
           <article class="cell c-3">
             <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 1</p>
-            <h3><b>Drop the filler.</b> “I need an open source alternative to Notion that I can self host” loses the words that describe you, not the project.</h3>
+            <h3><b>Skip the filler.</b> Words about you, like “I need” or “for my team”, are left out.</h3>
             <div class="figure"><p><span class="chip chip-drop">I need an open source</span> alternative <span class="chip chip-drop">to</span> notion <span class="chip chip-drop">that I can</span> self host</p></div>
           </article>
           <article class="cell c-3 no-r">
             <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 2</p>
-            <h3><b>Split the words.</b> Phrases about you (for my business, for free) are set aside. Key terms must match. Descriptive words such as alternative, self-hosted and language names lift the results that have them.</h3>
-            <div class="figure"><p>Key terms <span class="chip chip-key">notion</span></p><p>Descriptive <span class="chip chip-soft">alternative</span> <span class="chip chip-soft">self-hosted</span></p></div>
-          </article>
-          <article class="cell c-2">
-            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 3</p>
-            <h3><b>Ask for every word.</b> At least 100 stars, archived repos out, sorted by stars.</h3>
-            <div class="figure"><pre>alternative notion self-hosted
-stars:&gt;=100 archived:false
-sort=stars order=desc</pre></div>
-          </article>
-          <article class="cell c-2">
-            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 4</p>
-            <h3><b>Loosen with care.</b> Fewer than ten matches? It widens one rule at a time and tells you which.</h3>
-            <ul class="ladder figure">
-              <li><span>Every word</span><code>all_keywords</code></li>
-              <li><span>Key terms +</span><code>key_terms_plus</code></li>
-              <li><span>Key terms</span><code>key_terms</code></li>
-              <li><span>Most terms</span><code>most_key_terms</code></li>
-            </ul>
-          </article>
-          <article class="cell c-2 no-r">
-            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Cost</p>
-            <p class="big-num"><span data-count="1">1</span></p>
-            <h3><b>GitHub call for most searches.</b> Never more than four, even when the search has to widen.</h3>
+            <h3><b>Find the key words.</b> Some must match. Others just help the best ones rise.</h3>
+            <div class="figure"><p>Must have <span class="chip chip-key">notion</span></p><p>Nice to have <span class="chip chip-soft">alternative</span> <span class="chip chip-soft">self-hosted</span></p></div>
           </article>
           <article class="cell c-3 no-b">
-            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 5</p>
-            <h3><b>Throw out spam.</b> Descriptions over 1,000 characters are keyword stuffing, so they go.</h3>
+            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 3</p>
+            <h3><b>Throw out spam.</b> Repos stuffed with keywords are removed.</h3>
             <div class="figure viz-spam" role="img" aria-label="A repository whose description is 64,765 characters of keywords is removed; normal descriptions stay"><div class="spam-row is-out"><p class="spam-head"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>keyword-stuffed repository</span><b>64,765 chars</b></p><p class="spam-text">ai chatgpt gpt-4 llm agent react vue angular svelte nextjs python rust go java kotlin swift flutter docker kubernetes aws azure gcp crypto web3 nft blockchain bitcoin ai chatgpt gpt-4 llm agent react vue angular svelte nextjs python rust go java kotlin swift flutter docker kubernetes aws azure gcp crypto web3 nft blockchain bitcoin ai chatgpt gpt-4 llm agent react vue angular svelte nextjs python rust go java kotlin swift flutter docker kubernetes aws azure gcp crypto web3 nft blockchain bitcoin ai chatgpt gpt-4 llm agent react vue angular svelte nextjs python rust go java kotlin swift flutter docker kubernetes aws azure gcp crypto web3 nft blockchain bitcoin </p><span class="stamp">removed</span></div><div class="spam-row"><p class="spam-head"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>honest description</span><b>304 chars, the longest we saw</b></p></div></div>
           </article>
           <article class="cell c-3 no-r no-b">
-            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 6</p>
-            <h3><b>Best match first, then stars.</b> Returned with licence, language, topics and last push, compact enough for an agent's context.</h3>
+            <p class="cell-eyebrow"><span class="sq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Step 4</p>
+            <h3><b>Best first.</b> Trending picks, then the closest matches, then the most stars.</h3>
             <ol class="figure viz-stars" role="img" aria-label="Results ranked by stars: AppFlowy 78,162, AFFiNE 74,190, Huly 28,042, Focalboard 26,540"><li class="w100"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>AppFlowy-IO/AppFlowy</span><b>78,162</b><i></i></li><li class="w95"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>toeverything/AFFiNE</span><b>74,190</b><i></i></li><li class="w36"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>hcengineering/platform</span><b>28,042</b><i></i></li><li class="w34"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>mattermost-community/focalboard</span><b>26,540</b><i></i></li></ol>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- 04 Rate limits -->
+    <!-- 04 Limits -->
     <section class="sec" id="limits" aria-labelledby="limits-h">
-      <div class="strip"><span>[ 04 / 07 ] · <b>Rate limits</b></span><span class="strip-end">source: docs.github.com</span></div>
+      <div class="strip"><span>[ 04 / 07 ] · <b>Limits</b></span><span class="strip-end">handled for you</span></div>
       <div class="pad">
         <div class="head">
-          <span class="tag">GitHub API limits</span>
-          <h2 id="limits-h" class="rise">GitHub's search limits, <span class="accent">handled for you</span></h2>
-          <p class="rise" data-i="1">GitHub caps how often anyone can call its search API. Here are the real numbers, and what Code Search does so you rarely notice them.</p>
+          <span class="tag">Fair use</span>
+          <h2 id="limits-h" class="rise">Your searches are <span class="accent">yours alone</span></h2>
+          <p class="rise" data-i="1">Each person searches on their own GitHub account, so nobody slows you down.</p>
         </div>
-        <div class="limits">
-          <div class="table-card rise">
-            <table>
-              <caption class="sr-only">GitHub REST API limits that affect search</caption>
-              <thead><tr><th scope="col">Limit</th><th scope="col">GitHub's number</th></tr></thead>
-              <tbody>
-                <tr><th scope="row">Search API, signed in<small>repositories, issues, users, topics, commits</small></th><td class="v"><b>30</b> requests / min</td></tr>
-                <tr><th scope="row">Search API, anonymous<small>counted per IP address</small></th><td class="v">10 requests / min</td></tr>
-                <tr><th scope="row">Code search endpoint<small>search/code, sign-in required</small></th><td class="v">10 requests / min</td></tr>
-                <tr><th scope="row">Results per search<small>later pages are not served</small></th><td class="v">1,000 max</td></tr>
-                <tr><th scope="row">Query length<small>not counting qualifiers</small></th><td class="v">256 chars · 5 AND/OR/NOT</td></tr>
-                <tr><th scope="row">Other REST calls<small>for example, reading a README</small></th><td class="v">5,000 / hour signed in<br>60 / hour anonymous</td></tr>
-                <tr><th scope="row">Secondary limits<small>abuse protection, can change without notice</small></th><td class="v">100 concurrent<br>900 points / min per endpoint</td></tr>
-              </tbody>
-            </table>
-            <p class="table-foot">From GitHub's REST API documentation, checked 4 November 2026. Over the limit, GitHub answers 403 or 429 with x-ratelimit-remaining at 0.</p>
-          </div>
-          <div class="meter-card rise" data-i="1" id="meter">
-            <div class="meter-head"><h3>Your search quota, minute by minute</h3><span class="meter-sim">Simulation</span></div>
-            <p>Each square is one GitHub search call this minute. Your repeats come from your own cache and cost nothing.</p>
+        <div class="stats">
+          <div class="stat rise"><p class="big-num"><span data-count="30">30</span><small>/min</small></p><b>Searches</b><p>Your own GitHub limit.</p></div>
+          <div class="stat rise" data-i="1"><p class="big-num"><span data-count="1">1</span><small>call</small></p><b>Most searches</b><p>Fast and light on your limit.</p></div>
+          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Free repeats</b><p>Repeat searches come from a cache.</p></div>
+          <div class="stat rise" data-i="3"><p class="big-num">$0</p><b>Cost</b><p>Free for everyone.</p></div>
+        </div>
+        <div class="limits limits-one">
+          <div class="meter-card rise" id="meter">
+            <div class="meter-head"><h3>Try it: your limit, minute by minute</h3><span class="meter-sim">Demo</span></div>
+            <p>Each square is one search. Repeats are free.</p>
             <div class="meter" id="meter-cells" aria-hidden="true"></div>
-            <div class="meter-stats" aria-live="polite"><span><b id="m-left">30</b> of 30 left</span><span>resets in <b id="m-reset">60</b>s</span><span>cache hits <b id="m-hits">0</b></span></div>
+            <div class="meter-stats" aria-live="polite"><span><b id="m-left">30</b> of 30 left</span><span>resets in <b id="m-reset">60</b>s</span><span>free repeats <b id="m-hits">0</b></span></div>
             <div class="meter-actions">
-              <button class="btn btn-accent btn-ticket" type="button" id="m-new">Run a new search</button>
+              <button class="btn btn-accent btn-ticket" type="button" id="m-new">New search</button>
               <button class="btn" type="button" id="m-repeat">Repeat a search</button>
               <button class="btn" type="button" id="m-burst">Run 10 at once</button>
             </div>
             <ul class="meter-log" id="m-log"></ul>
           </div>
         </div>
-        <div class="stats">
-          <div class="stat rise"><p class="big-num"><span data-count="30">30</span><small>/min</small></p><b>Yours alone</b><p>Everyone searches on their own GitHub token, so one heavy user never slows anyone else down.</p></div>
-          <div class="stat rise" data-i="1"><p class="big-num"><span data-count="1">1</span><small>call</small></p><b>For most searches</b><p>Ten or more strong matches take one GitHub call. Harder searches take up to four.</p></div>
-          <div class="stat rise" data-i="2"><p class="big-num"><span data-count="10">10</span><small>min</small></p><b>Private cache</b><p>Your repeat searches are answered from a cache only your account can use.</p></div>
-          <div class="stat rise" data-i="3"><p class="big-num"><span data-count="429">429</span></p><b>Clear back-off</b><p>At the limit you get Retry-After with the exact wait, and MCP tools tell your agent how long to pause.</p></div>
-        </div>
-        <div class="band rise">
-          <div class="viz-gates" role="img" aria-label="With one shared token everyone shares 30 searches a minute; with Code Search you, a teammate and your agents each search on their own GitHub quota"><div class="gate is-bad"><span class="who">Everyone</span><span class="via"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg>one shared token</span><span class="q">30 / min for all</span></div><div class="gate"><span class="who"><img src="/img/logo.svg" alt="" width="20" height="15" draggable="false">You</span><span class="via"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg>your token</span><span class="q">30 / min</span></div><div class="gate"><span class="who"><img src="/img/logo.svg" alt="" width="20" height="15" draggable="false">A teammate</span><span class="via"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg>their token</span><span class="q">30 / min</span></div><div class="gate"><span class="who"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#claude"/></svg><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#cursor"/></svg>Your agents</span><span class="via"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg>your token, via API key</span><span class="q">your 30 / min</span></div></div>
-          <div class="band-copy">
-            <h3>Every user gets their own gate.</h3>
-            <p>Send everyone through one shared token and the whole service gets 30 searches a minute between all its users. Code Search signs each person in with their own GitHub account instead, so your 30 a minute are yours.</p>
-            <p>On top of GitHub's limit, Code Search allows 60 requests a minute and 1,500 a day per account across REST, MCP and the dashboard, so a runaway script can't burn through your quota in a loop.</p>
-            <p><a class="link" href="/docs/#rate-limits">Read the full rate-limit guide</a></p>
-          </div>
-        </div>
-        <p class="source">Sources: <a class="link" href="https://docs.github.com/en/rest/search/search#rate-limit" rel="noopener">GitHub REST API, search rate limit</a> · <a class="link" href="https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api" rel="noopener">Rate limits for the REST API</a></p>
+        <p class="source"><a class="link" href="/docs/#rate-limits">All the numbers in the docs</a></p>
       </div>
     </section>
 
@@ -351,13 +283,13 @@ sort=stars order=desc</pre></div>
       <div class="pad">
         <div class="head">
           <span class="tag">Agent ready</span>
-          <h2 id="agents-h" class="rise">Easily connect with your <span class="accent">AI agents</span></h2>
-          <p class="rise" data-i="1">One MCP endpoint with two tools, search_repositories and get_repository_readme. Pick your agent, copy, paste. Your agent can then check GitHub before it writes code and reuse what already exists, which usually costs fewer tokens than generating and debugging it from scratch. Savings vary by task.</p>
+          <h2 id="agents-h" class="rise">Add it to your <span class="accent">AI agent</span></h2>
+          <p class="rise" data-i="1">Pick your agent, copy one line, paste it. Your agent can then reuse code that already exists instead of writing it from scratch.</p>
         </div>
         <div class="connect">
           <div class="connect-list rise">
-            <p class="endpoint">MCP endpoint for every agent:<br><code id="mcp-url">https://codesearch.amplfyd.com/mcp</code></p>
-            <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a><br>MCP clients are told how to use it when they connect. For anything else, give your agent this file.</p>
+            <p class="endpoint">Server address<code id="mcp-url">https://codesearch.amplfyd.com/mcp</code></p>
+            <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a></p>
             <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
           </div>
           <div class="window connect-code rise" data-i="1" role="tabpanel" id="agent-panel">
@@ -375,12 +307,12 @@ sort=stars order=desc</pre></div>
       <div class="pad">
         <article class="amp rise">
           <div class="amp-main">
-            <p class="ticket-kicker">Made for Amplfyd · launching soon</p>
+            <p class="ticket-kicker">Coming soon</p>
             <h2 id="amp-h">Built for agents on <span class="amp-name">Amplfyd</span></h2>
-            <p>Code Search is made so agents on Amplfyd can search GitHub smoothly: one API key, two read-only tools, compact results that fit in context, and rate-limit answers that say exactly how long to wait. Amplfyd launches soon. Until then, Code Search works with every MCP client today.</p>
+            <p>Amplfyd launches soon. Code Search already works with every agent today.</p>
             <div class="hero-cta amp-cta">
-              <a class="btn btn-big btn-ticket" href="/app/#keys">Get your API key ready</a>
-              <a class="btn btn-big btn-ghost amp-ghost" href="/docs/#agents">Agent setup docs <span class="arrow">→</span></a>
+              <a class="btn btn-big btn-ticket" href="/app/#keys">Get an API key</a>
+              <a class="btn btn-big btn-ghost amp-ghost" href="/docs/#agents">Setup guide <span class="arrow">→</span></a>
             </div>
           </div>
           <div class="amp-side" aria-hidden="true">
@@ -399,7 +331,7 @@ sort=stars order=desc</pre></div>
         <div class="head">
           <span class="tag">Pricing</span>
           <h2 id="pricing-h" class="rise">Three plans. <span class="accent">All free.</span></h2>
-          <p class="rise" data-i="1">Pick the one that matches how you search. You can use all three at once. They cost the same, which is nothing.</p>
+          <p class="rise" data-i="1">Use one or all three. They all cost nothing.</p>
         </div>
         <div class="bill-wrap">
           <div class="bill" role="group" aria-label="Billing period"><span class="bill-thumb" id="bill-thumb" aria-hidden="true"></span><button type="button" aria-pressed="true" data-bill="month">Monthly</button><button type="button" aria-pressed="false" data-bill="year">Yearly</button></div>
@@ -410,18 +342,16 @@ sort=stars order=desc</pre></div>
             <div class="plan-top">
               <p class="plan-kicker"><span>No. 01</span><span>Admit one</span></p>
               <h3>Search pass</h3>
-              <p class="plan-for">For people who want the right repository without learning GitHub's query syntax.</p>
+              <p class="plan-for">For people who want the right project fast.</p>
               <p class="price"><span class="price-num">$0</span><span class="price-per" data-per>/ month</span></p>
             </div>
             <div class="perf" aria-hidden="true"></div>
             <div class="plan-body">
               <ul class="feats">
-                <li>Sign in with GitHub, nothing to install</li>
-                <li>Live search in the dashboard</li>
-                <li>Plain-English queries, GitHub qualifiers welcome</li>
-                <li>Filters for language, minimum stars and archived repos</li>
-                <li>Best matches first, keyword spam removed</li>
-                <li>Your own GitHub quota of 30 searches a minute</li>
+                <li>Nothing to install</li>
+                <li>Search in plain words</li>
+                <li>Filter by language and stars</li>
+                <li>Trending picks shown first</li>
               </ul>
               <a class="btn btn-dark btn-big btn-wide btn-ticket" href="/auth/login" data-auth="start">Start searching</a>
             </div>
@@ -431,18 +361,16 @@ sort=stars order=desc</pre></div>
             <div class="plan-top">
               <p class="plan-kicker"><span>No. 02</span><span>Admit one</span></p>
               <h3>Agent pass</h3>
-              <p class="plan-for">For Claude Code, Codex, Cursor and every other agent that needs to find real projects.</p>
+              <p class="plan-for">For Claude Code, Codex, Cursor and other AI agents.</p>
               <p class="price"><span class="price-num">$0</span><span class="price-per" data-per>/ month</span></p>
             </div>
             <div class="perf" aria-hidden="true"></div>
             <div class="plan-body">
               <ul class="feats">
                 <li class="incl">Everything in Search pass</li>
-                <li>API keys, one per agent, revoke any time</li>
-                <li>Hosted MCP server with two read-only tools</li>
-                <li>README reading in one tool call</li>
-                <li>Setup snippets for seven agents</li>
-                <li>Rate-limit errors that tell the agent how long to wait</li>
+                <li>One API key per agent</li>
+                <li>Copy-paste setup</li>
+                <li>Reads READMEs in one step</li>
               </ul>
               <a class="btn btn-big btn-wide btn-ticket" href="/app/#keys">Create an API key</a>
             </div>
@@ -451,52 +379,45 @@ sort=stars order=desc</pre></div>
             <div class="plan-top">
               <p class="plan-kicker"><span>No. 03</span><span>Admit one</span></p>
               <h3>Builder pass</h3>
-              <p class="plan-for">For scripts, apps and tools that call GitHub search over plain HTTP.</p>
+              <p class="plan-for">For apps and scripts that call the API.</p>
               <p class="price"><span class="price-num">$0</span><span class="price-per" data-per>/ month</span></p>
             </div>
             <div class="perf" aria-hidden="true"></div>
             <div class="plan-body">
               <ul class="feats">
                 <li class="incl">Everything in Agent pass</li>
-                <li>REST API for search and READMEs</li>
-                <li>OpenAPI 3.1 description and llms.txt</li>
-                <li>60 requests a minute and 1,500 a day per account</li>
-                <li>Private ten-minute cache for your account</li>
-                <li>X-Request-Id and Server-Timing on every response</li>
+                <li>Simple REST API</li>
+                <li>1,500 requests a day</li>
+                <li>Full API docs</li>
               </ul>
               <a class="btn btn-big btn-wide btn-ticket" href="/docs/#rest">Read the API docs</a>
             </div>
           </article>
         </div>
-        <p class="plans-foot">No card, no trial, no seat limits. Searches run on your own GitHub quota.</p>
-        <p class="plans-foot">Support us so that we can scale the compute and get you more useful tools.</p>
+        <p class="plans-foot">Like it? Help us keep it free.</p>
         <div class="hero-cta rise"><a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a></div>
       </div>
     </section>
 
     <!-- 07 FAQ -->
     <section class="sec" id="faq" aria-labelledby="faq-h">
-      <div class="strip"><span>[ 07 / 07 ] · <b>FAQ</b></span><span class="strip-end">13 questions</span></div>
+      <div class="strip"><span>[ 07 / 07 ] · <b>FAQ</b></span><span class="strip-end">9 questions</span></div>
       <div class="pad faq">
         <div class="faq-side">
-          <h2 id="faq-h" class="rise">Frequently asked questions</h2>
-          <p class="rise" data-i="1">Limits, privacy and setup. Everything else is in the docs.</p>
+          <h2 id="faq-h" class="rise">Questions</h2>
+          <p class="rise" data-i="1">Short answers. More in the docs.</p>
           <a class="btn rise" data-i="2" href="/docs/">Read the docs <span class="arrow">→</span></a>
         </div>
         <div class="qa rise" id="qa">
-<details><summary><span class="qn">Q.01</span><span>Do I need to install or set up anything?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>No. Sign in with GitHub in your browser and search from the dashboard straight away. You only touch a config file if you want an AI agent to use Code Search too, and that is one line.</p></div></details>
-<details><summary><span class="qn">Q.02</span><span>Is Code Search really free?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Yes. All three plans cost $0. Every search runs on your own GitHub account&#x27;s search quota, so there is no shared bill to pass on to you.</p></div></details>
-<details><summary><span class="qn">Q.03</span><span>What are GitHub&#x27;s search API rate limits?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>GitHub allows 30 search requests a minute for a signed-in user (10 a minute for the code search endpoint) and 10 a minute for anonymous requests, counted per IP address. Any one search returns at most 1,000 results.</p></div></details>
-<details><summary><span class="qn">Q.04</span><span>Do all Code Search users share one GitHub limit?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>No. Each person signs in with their own GitHub account and searches on their own token, so your 30 searches a minute belong to you alone.</p></div></details>
-<details><summary><span class="qn">Q.05</span><span>What happens when I hit the limit?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Code Search answers with status 429 and a Retry-After header that says exactly how long to wait, and the MCP tools pass that wait on to your agent. Repeated searches come from a ten-minute cache and do not use your quota.</p></div></details>
-<details><summary><span class="qn">Q.06</span><span>Can it see my private repositories?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>No. Code Search asks GitHub for no permissions beyond public data, so the token it holds can only read public repositories.</p></div></details>
-<details><summary><span class="qn">Q.07</span><span>What does Code Search store about me?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Your GitHub login, name and avatar, your GitHub token encrypted with AES-256-GCM, and only SHA-256 hashes of your sessions and API keys.</p></div></details>
-<details><summary><span class="qn">Q.08</span><span>Which agents work with it?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Any MCP client that speaks HTTP: Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline and Amp. Anything else can call the REST API.</p></div></details>
-<details><summary><span class="qn">Q.09</span><span>How does this save AI tokens?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>An agent that writes a parser or service from scratch spends tokens on every line it generates and on every round of debugging. Checking GitHub first lets it reuse a project that already works. A short search and one README read usually cost a few thousand tokens at most. How much you save depends on the task, and for small edits searching is not worth it, so we do not promise a fixed number.</p></div></details>
-<details><summary><span class="qn">Q.10</span><span>What is code-search.md?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>A short guide written for AI agents. It tells them when to search GitHub before writing code, how to write queries, how to judge results and licences, and to treat READMEs as untrusted. MCP clients get the key points when they connect and can read the whole file as an MCP resource. For other tools, give your agent the link.</p></div></details>
-<details><summary><span class="qn">Q.11</span><span>How is this different from GitHub&#x27;s own search?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>GitHub wants exact keywords and ranks by its own relevance. Code Search takes a plain sentence, sets aside phrases about you such as &#x27;for my business&#x27; or &#x27;for free&#x27;, removes keyword spam and low-star projects, and puts the projects that are what you asked for first, then the most-starred.</p></div></details>
-<details><summary><span class="qn">Q.12</span><span>What is the link with Amplfyd?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Code Search is part of amplfyd and is made for smooth use with agents on Amplfyd, which launches soon. You don&#x27;t have to wait for it: Code Search works today in the browser and with any MCP client.</p></div></details>
-<details><summary><span class="qn">Q.13</span><span>How do I leave?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Delete your account from the dashboard. Code Search removes your keys, sessions and token, and revokes its access to your GitHub account in the same step.</p></div></details>
+<details><summary><span class="qn">Q.01</span><span>Is Code Search free?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Yes. Every plan costs $0. Searches run on your own GitHub account, so there is no bill to pass on.</p></div></details>
+<details><summary><span class="qn">Q.02</span><span>Do I need to install anything?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>No. Sign in with GitHub and search in your browser. You only touch a config file if you want an AI agent to use it.</p></div></details>
+<details><summary><span class="qn">Q.03</span><span>How many searches can I run?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>GitHub gives each account 30 searches a minute. That limit is yours alone, and repeat searches come from a cache for free.</p></div></details>
+<details><summary><span class="qn">Q.04</span><span>Can it see my private code?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>No. Code Search asks GitHub for no extra permissions, so it can only read public projects.</p></div></details>
+<details><summary><span class="qn">Q.05</span><span>What do you store about me?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Your GitHub name and picture, and your GitHub token, encrypted. Keys and sessions are stored only as hashes.</p></div></details>
+<details><summary><span class="qn">Q.06</span><span>Which AI agents work with it?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Claude Code, Codex, Cursor, Grok, GitHub Copilot, Windsurf, Gemini CLI, Cline, Amp and any other MCP client. Anything else can use the REST API.</p></div></details>
+<details><summary><span class="qn">Q.07</span><span>How is it different from GitHub search?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>GitHub needs exact keywords. Code Search takes a normal sentence, removes spam and tiny projects, and shows the best matches first.</p></div></details>
+<details><summary><span class="qn">Q.08</span><span>What is trending first?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>For popular topics we keep a hand-picked list of trending projects. When your search matches a topic, those projects show at the top, marked Trending.</p></div></details>
+<details><summary><span class="qn">Q.09</span><span>How do I delete my account?</span><span class="plus" aria-hidden="true"></span></summary><div class="answer"><p>Open the dashboard, go to Account and press Delete. Your keys, sessions and token are removed right away.</p></div></details>
         </div>
       </div>
     </section>
@@ -504,21 +425,13 @@ sort=stars order=desc</pre></div>
     <!-- Final note -->
     <section class="sec note pad" aria-labelledby="note-h">
       <pre class="ascii note-ascii is-grey" data-ascii="cloud" aria-hidden="true"></pre>
-      <div class="note-labels" aria-hidden="true"><span>(Final note)</span><span>(From the Code Search team)</span><span>(codesearch.amplfyd.com)</span></div>
-      <h2 id="note-h" class="rise">Thanks for reading <span class="hand">this far.</span></h2>
+      <h2 id="note-h" class="rise">Ready to <span class="hand">search?</span></h2>
       <div class="note-body rise" data-i="1">
-        <p>Here is the whole thing in one breath: <strong>sign in with GitHub, describe what you need, get the repositories people actually star.</strong> No setup, no bill, and GitHub's rate limits handled for you.</p>
-        <p>If you build with an AI agent, give it the same search with one line of config. Code Search is made for agents on <strong>Amplfyd</strong>, which launches soon.</p>
+        <p>Sign in with GitHub, say what you need, get the projects people actually use.</p>
       </div>
       <div class="hero-cta rise" data-i="2">
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login" data-auth="start"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span>Sign in with GitHub</span></a>
         <a class="btn btn-big" href="/docs/">Read the docs</a>
-      </div>
-      <div class="note-body rise" data-i="3">
-        <p>Support us so that we can scale the compute and get you more useful tools.</p>
-      </div>
-      <div class="hero-cta rise" data-i="3">
-        <a class="btn btn-big" href="https://buymeacoffee.com/anshgrows" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img class="mark" src="/img/buymeacoffee.svg" alt="" width="17" height="17" draggable="false"><span>Buy me a coffee</span></a>
       </div>
       <p class="note-sign rise" data-i="3">happy searching</p>
     </section>
@@ -532,16 +445,16 @@ sort=stars order=desc</pre></div>
         <pre class="ascii foot-ascii" data-ascii="ground" aria-hidden="true"></pre>
       </div>
       <div class="foot-cells">
-        <a class="foot-cell" href="/docs/#rate-limits"><span class="k">GitHub limit</span><b>30 searches a minute, per user</b></a>
-        <a class="foot-cell" href="/docs/#mcp"><span class="k">MCP</span><b>2 tools, any MCP client</b></a>
+        <a class="foot-cell" href="/docs/#rate-limits"><span class="k">Limit</span><b>30 searches a minute</b></a>
+        <a class="foot-cell" href="/docs/#mcp"><span class="k">MCP</span><b>Works with any agent</b></a>
         <a class="foot-cell" href="/openapi.json"><span class="k">REST</span><b>OpenAPI 3.1</b></a>
-        <a class="foot-cell" href="/llms.txt"><span class="k">For language models</span><b>llms.txt</b></a>
-        <a class="foot-cell" href="/#amplfyd"><span class="k">Made for Amplfyd</span><b>Agents, launching soon</b></a>
+        <a class="foot-cell" href="/llms.txt"><span class="k">For AI</span><b>llms.txt</b></a>
+        <a class="foot-cell" href="/#amplfyd"><span class="k">Amplfyd</span><b>Coming soon</b></a>
         <a class="foot-cell" href="/app/"><span class="k">Dashboard</span><b>Search now <span class="arrow">→</span></b></a>
       </div>
     </div>
     <div class="foot-cols">
-      <nav class="foot-col" aria-labelledby="f1"><h2 id="f1">Product</h2><a href="/#how">How it works</a><a href="/#limits">Rate limits</a><a href="/#pricing">Pricing</a><a href="/#faq">Questions</a></nav>
+      <nav class="foot-col" aria-labelledby="f1"><h2 id="f1">Product</h2><a href="/#how">How it works</a><a href="/#limits">Limits</a><a href="/#pricing">Pricing</a><a href="/#faq">Questions</a></nav>
       <nav class="foot-col" aria-labelledby="f2"><h2 id="f2">Developers</h2><a href="/docs/">Docs</a><a href="/docs/#mcp">MCP server</a><a href="/docs/#rest">REST API</a><a href="/docs/#agents">Agent setup</a></nav>
       <nav class="foot-col" aria-labelledby="f3"><h2 id="f3">Account</h2><a href="/auth/login">Sign up</a><a href="/auth/login">Sign in</a><a href="/app/">Dashboard</a><a href="/app/#keys">API keys</a></nav>
       <nav class="foot-col" aria-labelledby="f4"><h2 id="f4">Legal</h2><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://docs.github.com/en/rest/search/search" rel="noopener">GitHub search docs</a></nav>

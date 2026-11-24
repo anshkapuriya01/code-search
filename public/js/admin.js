@@ -1,4 +1,5 @@
-// Admin console: users, the API call log and the registration switch. Data is rendered as text nodes only.
+// Admin console: users, the API call log, the registration switch and the trending library. Data is rendered as
+// text nodes only.
 
 const $ = (id) => document.getElementById(id);
 const fmt = new Intl.NumberFormat("en");
@@ -64,6 +65,10 @@ const ACTIONS = {
   auth_blocked_signup: "Sign-up blocked",
   auth_signout: "Signed out",
   admin_registration: "Changed registration",
+  admin_trending_add: "Trending: added",
+  admin_trending_edit: "Trending: edited",
+  admin_trending_delete: "Trending: removed",
+  admin_trending_refresh: "Trending: refreshed",
 };
 const OUTCOME = { ok: "OK", error: "Error", limited: "Rate-limited" };
 const AI_STATUS = {
@@ -237,9 +242,151 @@ $("calls-form").addEventListener("submit", (e) => {
 });
 $("calls-more").addEventListener("click", () => loadCalls(true).catch(report));
 
+// ---------- Trending library ----------
+
+let trendingEntries = [];
+
+function trendingStatus(text) {
+  $("tr-status").textContent = text;
+}
+
+function resetTrendingForm() {
+  $("trending-form").reset();
+  $("tr-id").value = "";
+  $("tr-position").value = "0";
+  $("tr-repo").disabled = false;
+  $("tr-submit").textContent = "Add to library";
+  $("tr-cancel").hidden = true;
+}
+
+function editTrending(e) {
+  $("tr-id").value = String(e.id);
+  $("tr-repo").value = e.repo;
+  $("tr-repo").disabled = true; // the repo of an entry is fixed; add it again to use another one
+  $("tr-case").value = e.useCase;
+  $("tr-keywords").value = e.keywords.join(", ");
+  $("tr-position").value = String(e.position);
+  $("tr-submit").textContent = "Save changes";
+  $("tr-cancel").hidden = false;
+  trendingStatus(`Editing ${e.repo} in ${e.useCase}.`);
+  $("trending-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("tr-case").focus({ preventScroll: true });
+}
+
+async function removeTrending(e) {
+  const ok = await confirmDialog(`Remove ${e.repo}?`, `It stops showing first for “${e.useCase}” searches.`, "Remove");
+  if (!ok) return;
+  clearFlash();
+  try {
+    await api(`/api/admin/trending/${e.id}`, { method: "DELETE" });
+    trendingStatus(`Removed ${e.repo} from ${e.useCase}.`);
+    await loadTrending();
+  } catch (err) {
+    report(err);
+  }
+}
+
+function trendingRow(e) {
+  const d = e.data ?? {};
+  const url = safeUrl(d.url);
+  return el(
+    "li",
+    { class: "tr-row" },
+    el(
+      "div",
+      { class: "tr-main" },
+      el("div", { class: "tr-top" }, url ? el("a", { class: "link tr-name", href: url, target: "_blank", rel: "noopener noreferrer", text: e.repo }) : el("span", { class: "tr-name", text: e.repo }), el("span", { class: "tr-stars", text: `★ ${fmt.format(d.stars ?? 0)}` }), d.archived ? el("span", { class: "adm-pill is-error", text: "Archived" }) : null),
+      d.description ? el("p", { class: "tr-desc", text: d.description }) : null,
+      el("p", { class: "tr-keys" }, ...e.keywords.map((k) => el("span", { class: "chip chip-soft", text: k }))),
+      el("small", { class: "quiet", text: `Order ${e.position} · updated ${day(e.refreshedAt)}` }),
+    ),
+    el(
+      "div",
+      { class: "tr-btns" },
+      el("button", { class: "btn btn-small", type: "button", text: "Edit", onclick: () => editTrending(e) }),
+      el("button", { class: "btn btn-small key-revoke", type: "button", text: "Remove", onclick: () => removeTrending(e) }),
+    ),
+  );
+}
+
+function renderTrending() {
+  const groups = new Map();
+  for (const e of trendingEntries) {
+    const k = e.useCase;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  $("tr-cases").replaceChildren(...[...groups.keys()].map((k) => el("option", { value: k })));
+  $("trending-list").replaceChildren(
+    ...[...groups].map(([useCase, list]) =>
+      el(
+        "section",
+        { class: "tr-group" },
+        el("h3", {}, useCase, el("span", { class: "count", text: String(list.length) })),
+        el("ul", { class: "tr-rows" }, list.map(trendingRow)),
+      ),
+    ),
+  );
+  $("trending-empty").hidden = trendingEntries.length > 0;
+}
+
+async function loadTrending() {
+  const { entries } = await api("/api/admin/trending");
+  trendingEntries = entries;
+  renderTrending();
+}
+
+$("trending-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  clearFlash();
+  const id = $("tr-id").value;
+  const body = { useCase: $("tr-case").value, keywords: $("tr-keywords").value, position: $("tr-position").value || 0 };
+  const btn = $("tr-submit");
+  btn.disabled = true;
+  trendingStatus(id ? "Saving…" : "Checking the repository on GitHub…");
+  try {
+    if (id) {
+      const { entry } = await api(`/api/admin/trending/${id}`, { method: "PUT", body: JSON.stringify(body) });
+      trendingStatus(`Saved ${entry.repo} in ${entry.useCase}.`);
+    } else {
+      const { entry, updated } = await api("/api/admin/trending", { method: "POST", body: JSON.stringify({ ...body, repo: $("tr-repo").value }) });
+      trendingStatus(`${updated ? "Updated" : "Added"} ${entry.repo} in ${entry.useCase}.`);
+    }
+    resetTrendingForm();
+    await loadTrending();
+  } catch (err) {
+    trendingStatus("");
+    report(err);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("tr-cancel").addEventListener("click", () => {
+  resetTrendingForm();
+  trendingStatus("");
+});
+
+$("trending-refresh").addEventListener("click", async () => {
+  clearFlash();
+  const btn = $("trending-refresh");
+  btn.disabled = true;
+  trendingStatus("Updating stars and descriptions from GitHub…");
+  try {
+    const r = await api("/api/admin/trending/refresh", { method: "POST" });
+    trendingStatus(`Updated ${r.refreshed} ${r.refreshed === 1 ? "repo" : "repos"}${r.failed.length ? `. Failed: ${r.failed.map((f) => f.repo).join(", ")}` : ""}.`);
+    await loadTrending();
+  } catch (err) {
+    trendingStatus("");
+    report(err);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 async function refreshAll() {
   clearFlash();
-  const [summary] = await Promise.all([api("/api/admin/summary"), loadUsers(), loadCalls()]);
+  const [summary] = await Promise.all([api("/api/admin/summary"), loadUsers(), loadCalls(), loadTrending()]);
   renderSummary(summary);
 }
 $("refresh").addEventListener("click", () => refreshAll().catch(report));

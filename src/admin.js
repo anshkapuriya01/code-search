@@ -10,6 +10,10 @@ import { utcDay } from "./limits.js";
 import { USER_DAILY_RETENTION_DAYS } from "./maintenance.js";
 import { withAppTables } from "./schema.js";
 import { registrationState, setRegistrationOpen } from "./settings.js";
+import { userToken } from "./service.js";
+import { GitHubError } from "./search.js";
+import { ServiceError } from "./limits.js";
+import { TrendingError, addTrending, deleteTrending, listTrending, refreshTrending, updateTrending, validateEntry } from "./trending.js";
 
 const DAY_MS = 86_400_000;
 const PAGE_SIZE = 50;
@@ -69,6 +73,8 @@ export async function handleAdminApi(request, env, url, session, audit) {
     if (method !== "GET") return errorJson(405, "Use GET.", { code: "method_not_allowed" });
     return listCalls(env, url);
   }
+
+  if (pathname.startsWith("/api/admin/trending")) return handleTrending(request, env, url, session, audit);
 
   const detail = pathname.match(/^\/api\/admin\/calls\/(\d{1,16})$/);
   if (detail) {
@@ -232,4 +238,65 @@ async function callDetail(env, id) {
       response: parseStored(row.response_json),
     },
   });
+}
+
+// ---------- Trending library ----------
+
+async function readJsonBody(request) {
+  const text = await readBody(request, 4096);
+  try {
+    return text ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function handleTrending(request, env, url, session, audit) {
+  const { pathname } = url;
+  const method = request.method;
+  const writes = method !== "GET";
+  if (writes && !isSameOrigin(request, url)) return errorJson(403, "Cross-site request blocked.", { code: "forbidden" });
+  try {
+    if (pathname === "/api/admin/trending") {
+      if (method === "GET") return json({ entries: await listTrending(env) });
+      if (method !== "POST") return errorJson(405, "Use GET or POST.", { code: "method_not_allowed" });
+      const body = await readJsonBody(request);
+      const entry = validateEntry(body);
+      audit.action = "admin_trending_add";
+      audit.input = { repo: `${entry.repo.owner}/${entry.repo.name}`, useCase: entry.useCase, keywords: entry.keywords };
+      const result = await addTrending(env, entry, { token: await userToken(session.user, env), login: session.user.login });
+      audit.output = { id: result.entry.id, repo: result.entry.repo, updated: result.updated };
+      return json(result, result.updated ? 200 : 201);
+    }
+    if (pathname === "/api/admin/trending/refresh") {
+      if (method !== "POST") return errorJson(405, "Use POST.", { code: "method_not_allowed" });
+      audit.action = "admin_trending_refresh";
+      const result = await refreshTrending(env, await userToken(session.user, env));
+      audit.output = result;
+      return json(result);
+    }
+    const one = pathname.match(/^\/api\/admin\/trending\/(\d{1,16})$/);
+    if (one) {
+      const id = Number(one[1]);
+      if (method === "DELETE") {
+        audit.action = "admin_trending_delete";
+        audit.input = { id };
+        return (await deleteTrending(env, id)) ? json({ ok: true }) : errorJson(404, "That entry no longer exists.", { code: "not_found" });
+      }
+      if (method === "PUT") {
+        const entry = validateEntry(await readJsonBody(request), { requireRepo: false });
+        audit.action = "admin_trending_edit";
+        audit.input = { id, ...entry };
+        const updated = await updateTrending(env, id, entry);
+        return updated ? json({ entry: updated }) : errorJson(404, "That entry no longer exists.", { code: "not_found" });
+      }
+      return errorJson(405, "Use PUT or DELETE.", { code: "method_not_allowed" });
+    }
+  } catch (err) {
+    if (err instanceof TrendingError) return errorJson(400, err.message, { code: "invalid_params" });
+    if (err instanceof GitHubError) return errorJson(err.status, err.message, { code: err.extra.code ?? "github_error" });
+    if (err instanceof ServiceError) return errorJson(err.status, err.message, { code: err.code });
+    throw err;
+  }
+  return errorJson(404, "Not found.", { code: "not_found" });
 }

@@ -84,7 +84,9 @@
           "homepage": { "type": ["string", "null"], "format": "uri" },
           "archived": { "type": "boolean" },
           "openIssues": { "type": "integer" },
-          "pushedAt": { "type": ["string", "null"], "format": "date-time" }
+          "pushedAt": { "type": ["string", "null"], "format": "date-time" },
+          "trending": { "type": "boolean", "description": "Present and true for hand-picked trending repositories. They come first when the search matches their use case." },
+          "useCase": { "type": "string", "description": "The use case a trending repository was picked for, e.g. 'Web scraping'." }
         }
       },
       "SearchResult": {
@@ -121,6 +123,7 @@
             "type": ["object", "null"],
             "properties": { "limit": { "type": ["integer", "null"] }, "remaining": { "type": ["integer", "null"] }, "reset": { "type": ["integer", "null"] } }
           },
+          "trendingCount": { "type": "integer", "description": "How many hand-picked trending repositories lead the results." },
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/Repository" } },
           "requestId": { "type": "string" }
         }

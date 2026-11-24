@@ -58,7 +58,7 @@ function renderParse() {
 
   const queryNode = $("parse-query");
   if (!parsed.keywords.length && !parsed.qualifiers.length) {
-    queryNode.textContent = "Type what the project should do.";
+    queryNode.textContent = "Type what you need.";
   } else {
     try {
       const q = buildQuery(parsed, { minStars, language: null, includeArchived: false }, "strict");
@@ -79,14 +79,14 @@ function renderParse() {
     top.replaceChildren(
       "Top match: ",
       el("strong", {}, el("a", { class: "link", href: "#results", text: first.name })),
-      `, ${fmt.format(first.stars)} stars, first of ${s.total} results below.`,
+      ` (★ ${fmt.format(first.stars)}). See the results below.`,
     );
     if (idx !== currentPreset) {
       currentPreset = idx;
       renderBoard();
     }
   } else {
-    top.replaceChildren("That is exactly what Code Search would ask GitHub. Press Search to run it live on your own account.");
+    top.replaceChildren("This is what Code Search would send to GitHub. Press Search to try it for real.");
   }
 }
 
@@ -133,19 +133,13 @@ function statusFor(pushedAt, recordedAt) {
   return ["Quiet", "status-quiet"];
 }
 
-const LEVEL = {
-  all_keywords: "every word matched",
-  key_terms_plus: "key terms and some descriptive words matched",
-  key_terms: "every key term matched",
-  most_key_terms: "most key terms matched",
-};
 
 function renderBoard() {
   const s = demo.searches[currentPreset];
   $("board-caption").replaceChildren(
     el("strong", { text: `“${s.input}”` }),
-    ` · ${s.total} repositories with ${fmt.format(s.minStars)}+ stars, ${LEVEL[s.matchLevel]}, ranked by stars. `,
-    el("span", { class: "quiet", text: `Recorded from GitHub on ${new Date(demo.recordedAt).toLocaleDateString("en", { day: "numeric", month: "long", year: "numeric" })}.` }),
+    ` · ${s.total} projects, best first. `,
+    el("span", { class: "quiet", text: `Sample from ${new Date(demo.recordedAt).toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })}.` }),
   );
   const head = el(
     "div",
@@ -285,7 +279,7 @@ function initMeter() {
     const q = QUERIES[next++ % QUERIES.length];
     const cost = Math.random() < 0.7 ? 1 : 2 + Math.floor(Math.random() * 3);
     if (used + cost > LIMIT) {
-      log(`429 rate_limited · retry in ${Math.ceil((resetAt - Date.now()) / 1000)}s`, "stop");
+      log(`Limit reached · wait ${Math.ceil((resetAt - Date.now()) / 1000)}s`, "stop");
       return;
     }
     used += cost;
@@ -297,7 +291,7 @@ function initMeter() {
     if (!cache.length) return fresh();
     const q = cache[Math.floor(Math.random() * cache.length)];
     hits++;
-    log(`“${q}” · cached, 0 calls`, "hit");
+    log(`“${q}” · repeat, free`, "hit");
     paint();
   };
   $("m-new").addEventListener("click", fresh);
@@ -310,7 +304,7 @@ function initMeter() {
     $("m-reset").textContent = String(left);
     if (left <= 0) {
       resetAt = Date.now() + 60_000;
-      if (used) log("new minute · 30 searches back", "hit");
+      if (used) log("New minute · 30 searches back", "hit");
       used = 0;
       paint();
     }

@@ -43,6 +43,19 @@
       </div>
     </nav>
   </header>
+  <div class="app-mobile-nav" id="app-mobile-nav" hidden>
+    <label class="sr-only" for="app-nav-select">Go to a section</label>
+    <div class="app-nav-select">
+      <select id="app-nav-select">
+        <option value="#search">Search</option>
+        <option value="#connect">Connect an agent</option>
+        <option value="#keys">API keys</option>
+        <option value="#usage">Usage</option>
+        <option value="#account">Account</option>
+        <option value="/docs/">Docs</option>
+      </select>
+    </div>
+  </div>
 
   <main id="main" class="app-main">
     <div class="flash" id="flash" role="alert" hidden></div>
@@ -59,12 +72,11 @@
       <div class="card signin-main">
         <span class="tag">No setup</span>
         <h1 id="signin-h">Sign in and start searching</h1>
-        <p id="signin-text">Sign in with GitHub to search live and create API keys for your agents. Code Search asks for no permissions beyond public data, and it's free.</p>
+        <p id="signin-text">Free. We only read public data.</p>
         <ul class="feats" id="signin-feats">
-          <li>Nothing to install or configure</li>
-          <li>Your own GitHub quota of 30 searches a minute</li>
-          <li>Results ranked by stars, spam removed</li>
-          <li>Made for agents on Amplfyd, launching soon</li>
+          <li>Nothing to install</li>
+          <li>30 searches a minute, all yours</li>
+          <li>Best projects first, spam removed</li>
         </ul>
         <a class="btn btn-accent btn-big btn-ticket" href="/auth/login"><svg class="mark" aria-hidden="true"><use href="/img/marks.svg#github"/></svg><span id="signin-action">Continue with GitHub</span></a>
       </div>
@@ -76,12 +88,12 @@
 
     <!-- Search -->
     <section class="app-view" id="view-search" hidden aria-labelledby="search-h">
-      <div class="view-head"><h1 id="search-h" class="view-title">Search GitHub</h1><p>Describe the project in plain words. Results are ranked by stars, spam and low-star repos removed.</p></div>
+      <div class="view-head"><h1 id="search-h" class="view-title">Search GitHub</h1><p>Say what you need in plain words.</p></div>
       <form class="card search-card" id="search-form" autocomplete="off" role="search">
         <div class="search-row">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
           <label class="sr-only" for="q">What should the project do?</label>
-          <input id="q" name="q" type="search" maxlength="500" required placeholder="e.g. self-hosted kanban board with markdown support">
+          <input id="q" name="q" type="search" maxlength="500" required placeholder="e.g. kanban board I can host myself">
           <button class="btn btn-accent" id="search-btn" type="submit">Search</button>
         </div>
         <div class="filter-row">
@@ -112,31 +124,31 @@
         <button class="btn" id="next" type="button">Next</button>
       </div>
       <section class="examples" id="ideas" aria-labelledby="ex-h">
-        <div class="examples-head"><h2 id="ex-h">Try an example</h2><p>Click one to fill the search and run it. Each shows a different trick.</p></div>
+        <div class="examples-head"><h2 id="ex-h">Try an example</h2><p>Tap one to run it.</p></div>
         <div class="ex-grid">
         <button class="ex ex-dark ex-wide" type="button" data-example data-q="open source alternative to notion I can self host" data-language="" data-stars="100">
           <span class="ex-k">Replace a tool</span>
           <span class="ex-q">open source alternative to notion I can self host</span>
           <span class="ex-chips"><span>notion</span><span>alternative</span><span>self</span><span>host</span></span>
-          <span class="ex-tip">Name the product you want to replace. Filler words are dropped for you.</span>
+          <span class="ex-tip">Name the app you want to replace.</span>
           <span class="ex-go" aria-hidden="true">Run →</span>
         </button>
         <button class="ex ex-orange" type="button" data-example data-q="time series forecasting" data-language="" data-stars="1000">
           <span class="ex-k">Only established projects</span>
           <span class="ex-big">★ 1,000+</span>
           <span class="ex-q">time series forecasting</span>
-          <span class="ex-tip">Raise minimum stars in crowded topics.</span>
+          <span class="ex-tip">Raise min stars for popular topics.</span>
         </button>
         <button class="ex ex-lang" type="button" data-example data-q="terminal file manager" data-language="Rust" data-stars="100">
           <span class="ex-k">Pick a language</span>
           <span class="ex-badge">Language: Rust</span>
           <span class="ex-q">terminal file manager</span>
-          <span class="ex-tip">The Language filter is a hard filter; a language word in the sentence only breaks ties.</span>
+          <span class="ex-tip">Use the Language filter to get only that language.</span>
         </button>
         <button class="ex ex-code" type="button" data-example data-q="static site generator license:mit" data-language="" data-stars="100">
           <span class="ex-k">Use a GitHub qualifier</span>
           <span class="ex-term"><span class="ex-prompt">$</span> static site generator <b>license:mit</b></span>
-          <span class="ex-tip">license:, topic: and user: pass straight to GitHub.</span>
+          <span class="ex-tip">GitHub filters like license: work too.</span>
         </button>
         <button class="ex ex-note ex-wide" type="button" data-example data-q="python library to convert pdf tables to excel" data-language="" data-stars="100">
           <span class="ex-k">Describe the job</span>
@@ -147,7 +159,7 @@
           <span class="ex-k"><span class="ex-pulse" aria-hidden="true"></span>Still maintained</span>
           <span class="ex-q">self-hosted web analytics</span>
           <span class="ex-badge">pushed:&gt;2026-01-01 · 500+ ★</span>
-          <span class="ex-tip">pushed:&gt; keeps projects with recent commits.</span>
+          <span class="ex-tip">pushed:&gt; shows only recently updated projects.</span>
         </button>
         </div>
       </section>
@@ -155,13 +167,13 @@
 
     <!-- Connect -->
     <section class="app-view" id="view-connect" hidden aria-labelledby="connect-title">
-      <div class="view-head"><h1 id="connect-title" class="view-title">Connect an agent</h1><p>Pick your agent, copy the snippet, paste it. Copy includes the usage prompt where the format allows it. Two tools appear: search_repositories and get_repository_readme.</p></div>
-      <div class="amp-banner"><span class="amp-dot" aria-hidden="true"></span><p><strong>Made for agents on Amplfyd, launching soon.</strong> Code Search already works with every MCP client below.</p></div>
+      <div class="view-head"><h1 id="connect-title" class="view-title">Connect an agent</h1><p>Pick your agent, copy the snippet, paste it.</p></div>
+      <div class="amp-banner"><span class="amp-dot" aria-hidden="true"></span><p><strong>Amplfyd is coming soon.</strong> Code Search already works with every agent below.</p></div>
       <div class="connect">
         <div class="connect-list">
-          <p class="endpoint">MCP endpoint<code id="mcp-url"></code></p>
+          <p class="endpoint">Server address<code id="mcp-url"></code></p>
           <p class="endpoint key-note" id="connect-key-note"></p>
-          <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a><br>MCP clients are told how to use it when they connect. For anything else, give your agent this file.</p>
+          <p class="endpoint">Guide for your AI: <a class="link" href="/code-search.md">code-search.md</a></p>
           <div class="agent-tabs" role="tablist" aria-label="Agents" id="agent-tabs"></div>
         </div>
         <div class="window connect-code" role="tabpanel" id="agent-panel">
@@ -172,7 +184,7 @@
         </div>
       </div>
       <section class="card prompts-card" aria-labelledby="pr-h">
-        <div class="examples-head"><h2 id="pr-h">Example prompts for your agent</h2><p>Mention code-search so the agent picks the tool.</p></div>
+        <div class="examples-head"><h2 id="pr-h">Prompts to try</h2><p>Mention code-search so your agent uses it.</p></div>
         <div class="prompts">
           <div class="prompt"><p>“Read https://codesearch.amplfyd.com/code-search.md and follow it: check GitHub with code-search before you write anything substantial.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
           <div class="prompt"><p>“Use code-search to find a well-maintained Rust crate for parsing TOML, read the READMEs of the top three and recommend one.”</p><button class="btn btn-small" type="button" data-prompt>Copy</button></div>
@@ -189,10 +201,10 @@
 
     <!-- Keys -->
     <section class="app-view" id="view-keys" hidden aria-labelledby="keys-h">
-      <div class="view-head"><h1 id="keys-h" class="view-title">API keys</h1><p>Keys are only for agents and scripts. Searching in the dashboard needs none.</p></div>
+      <div class="view-head"><h1 id="keys-h" class="view-title">API keys</h1><p>Only needed for agents and scripts.</p></div>
       <div class="keys-board">
         <div class="card keys-create">
-          <div class="card-head"><h2>Create a key</h2><p>Give each agent or script its own key, so you can revoke one without touching the rest.</p></div>
+          <div class="card-head"><h2>Create a key</h2><p>Use one key per agent, so you can turn one off without touching the rest.</p></div>
           <form class="key-form" id="key-form" autocomplete="off">
             <label class="key-label" for="key-name">Key name</label>
             <div class="key-input-row">
@@ -218,14 +230,14 @@
             <p><strong>No keys yet.</strong></p>
             <p>Create one on the left when you want to connect an agent.</p>
           </div>
-          <p class="keys-foot">Every key searches on your GitHub quota of 30 searches a minute. Revoked keys stop working within a minute.</p>
+          <p class="keys-foot">All keys share your 30 searches a minute. Revoked keys stop within a minute.</p>
         </div>
       </div>
     </section>
 
     <!-- Usage -->
     <section class="app-view" id="view-usage" hidden aria-labelledby="usage-h">
-      <div class="view-head"><h1 id="usage-h" class="view-title">Usage</h1><p>When and how often your keys called Code Search. Counted per hour and kept for 90 days.</p></div>
+      <div class="view-head"><h1 id="usage-h" class="view-title">Usage</h1><p>How often your keys were used. Kept for 90 days.</p></div>
       <div class="usage-bar">
         <div class="seg" role="group" aria-label="Time range">
           <button type="button" data-days="1" aria-pressed="false">24 hours</button>
@@ -238,7 +250,7 @@
         <span class="usage-live"><span class="live-dot" aria-hidden="true"></span><span id="usage-updated" aria-live="polite">Live</span><button class="btn btn-small" id="usage-refresh" type="button">Refresh</button></span>
       </div>
       <div class="usage-empty" id="usage-empty" hidden>
-        <p><strong>No API calls in this range yet.</strong> Connect an agent with a key and its calls show up here within seconds.</p>
+        <p><strong>Nothing here yet.</strong> Connect an agent and its calls show up within seconds.</p>
         <a class="btn btn-small" href="#connect">Connect an agent</a>
       </div>
       <div class="usage-stats" id="usage-stats"></div>
@@ -269,15 +281,15 @@
           <dl class="facts">
             <dt>Signed in as</dt><dd><strong id="account-login"></strong> via GitHub</dd>
             <dt>Permissions</dt><dd>Public data only</dd>
-            <dt>Search quota</dt><dd>30 a minute, your own GitHub limit</dd>
-            <dt>Code Search limit</dt><dd>120 requests a minute</dd>
+            <dt>Searches</dt><dd>30 a minute, your own GitHub limit</dd>
+            <dt>Code Search limit</dt><dd>60 requests a minute, 1,500 a day</dd>
             <dt>Plan</dt><dd>Free, every feature</dd>
           </dl>
-          <p class="quiet">To pause access without deleting anything, revoke Code Search in your GitHub settings under Applications.</p>
+          <p class="quiet">To pause access, revoke Code Search in GitHub settings under Applications.</p>
         </div>
         <div class="card card-dark account-danger">
           <h2>Delete your account</h2>
-          <p>Removes your keys, sessions and stored token, and revokes Code Search's access to GitHub. Agents using your keys stop working at once.</p>
+          <p>Removes your keys and data and disconnects GitHub. Agents using your keys stop at once.</p>
           <button class="btn btn-accent" id="delete-account" type="button">Delete account</button>
         </div>
       </div>

@@ -1,4 +1,5 @@
-// Tables for the admin console, the API call log, AI usage and daily limits. Same SQL as migrations 0003 and 0004.
+// Tables for the admin console, the API call log, AI usage, daily limits and the trending library. Same SQL as
+// migrations 0003, 0004 and 0005.
 // They are created on demand when missing (for example a deploy that ran before the migration), so a
 // missing table can never break sign-in or search.
 
@@ -20,6 +21,11 @@ const SCHEMA = [
     day TEXT NOT NULL, user_id INTEGER NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
     searches INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, ai_searches INTEGER NOT NULL DEFAULT 0,
     neurons REAL NOT NULL DEFAULT 0, last_call INTEGER, PRIMARY KEY (day, user_id))`,
+  `CREATE TABLE IF NOT EXISTS trending_repos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, use_case TEXT NOT NULL, repo TEXT NOT NULL, keywords TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, added_at INTEGER NOT NULL, added_by TEXT,
+    refreshed_at INTEGER NOT NULL)`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS trending_repos_case_repo ON trending_repos(use_case COLLATE NOCASE, repo COLLATE NOCASE)",
 ];
 
 let ready = null;

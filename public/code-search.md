@@ -29,7 +29,7 @@ If the user asked you to write it from scratch, do that.
 ## How to use it
 
 1. **Describe the project in plain words.** Call `search_repositories` with what the code should do.
-2. **Read the results.** Choose at most three candidates. The list is ordered by how well each project matches, then by stars.
+2. **Read the results.** Choose at most three candidates. The list is ordered by how well each project matches, then by stars. Results marked trending (`[trending pick: ...]`) were hand-picked for that use case and come first.
 3. **Read before you recommend.** Call `get_repository_readme` on those candidates to check that they really fit.
 4. **Decide:** use it as a dependency, adapt it within its licence, or write your own.
 5. **Tell the user** what you chose, why, its licence, and the link.

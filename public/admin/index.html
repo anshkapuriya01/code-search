@@ -43,7 +43,7 @@
     <div class="app-view" id="console" hidden>
       <div class="view-head">
         <h1 class="view-title">Admin</h1>
-        <p>Who uses Code Search, every API call they make, and who may join.</p>
+        <p>Users, API calls, sign-ups and the trending library.</p>
       </div>
 
       <section class="card adm-registration" id="registration-card" aria-labelledby="registration-h">
@@ -57,6 +57,30 @@
       </section>
 
       <div class="adm-stats" id="stats"></div>
+
+      <section class="card adm-trending" aria-labelledby="trending-h">
+        <div class="adm-head">
+          <div>
+            <h2 id="trending-h">Trending library</h2>
+            <p class="quiet">Pick repos for a use case. When a search matches the use case or one of its keywords, these show first, marked Trending.</p>
+          </div>
+          <button class="btn btn-small" id="trending-refresh" type="button">Refresh stars</button>
+        </div>
+        <form class="tr-form" id="trending-form" autocomplete="off">
+          <input type="hidden" id="tr-id">
+          <label class="tr-field"><span>Repository</span><input class="adm-input" id="tr-repo" maxlength="200" placeholder="owner/name or GitHub link" required></label>
+          <label class="tr-field"><span>Use case</span><input class="adm-input" id="tr-case" maxlength="60" list="tr-cases" placeholder="e.g. Web scraping" required><datalist id="tr-cases"></datalist></label>
+          <label class="tr-field tr-wide"><span>Keywords <small>(comma separated: words people search for)</small></span><input class="adm-input" id="tr-keywords" maxlength="1500" placeholder="e.g. scraper, crawler, web scraping" required></label>
+          <label class="tr-field tr-small"><span>Order</span><input class="adm-input" id="tr-position" type="number" min="0" max="999" value="0" inputmode="numeric"></label>
+          <div class="tr-actions">
+            <button class="btn btn-accent btn-small" id="tr-submit" type="submit">Add to library</button>
+            <button class="btn btn-small" id="tr-cancel" type="button" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <p class="tr-status quiet" id="tr-status" aria-live="polite"></p>
+        <div class="tr-groups" id="trending-list"></div>
+        <p class="adm-empty" id="trending-empty" hidden>No trending repos yet. Add the first one above.</p>
+      </section>
 
       <section class="card" aria-labelledby="users-h">
         <div class="adm-head">

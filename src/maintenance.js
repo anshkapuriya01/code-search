@@ -5,6 +5,8 @@ import { MAX_ROWS, RETENTION_DAYS, USER_LOG_ROWS } from "./audit.js";
 import { utcDay } from "./limits.js";
 import { withAppTables } from "./schema.js";
 import { USAGE_RETENTION_DAYS, withUsageTable } from "./usage.js";
+import { decryptText } from "./crypto.js";
+import { refreshTrending } from "./trending.js";
 
 const DAY_MS = 86_400_000;
 export const USER_DAILY_RETENTION_DAYS = 31;
@@ -34,4 +36,16 @@ export async function runMaintenance(env, now = Date.now()) {
   await attempt("sessions", () => delete_("DELETE FROM sessions WHERE expires_at <= ?1", now));
   await attempt("daily totals", () => withAppTables(env, () => delete_("DELETE FROM user_daily WHERE day < ?1", utcDay(now - USER_DAILY_RETENTION_DAYS * DAY_MS))));
   await attempt("AI usage", () => withAppTables(env, () => delete_("DELETE FROM ai_usage WHERE day < ?1", utcDay(now - USAGE_RETENTION_DAYS * DAY_MS))));
+  await attempt("trending refresh", () => refreshTrendingAsAdmin(env, now));
+}
+
+/** Updates the trending library's stars and descriptions once a day, on the admin's own GitHub quota. */
+async function refreshTrendingAsAdmin(env, now) {
+  const id = String(env.ADMIN_GITHUB_ID ?? "").trim();
+  if (!/^\d+$/.test(id) || !env.TOKEN_ENCRYPTION_KEY) return;
+  const admin = await env.DB.prepare("SELECT token_enc FROM users WHERE id = ?1").bind(Number(id)).first();
+  if (!admin?.token_enc) return;
+  const token = await decryptText(admin.token_enc, env.TOKEN_ENCRYPTION_KEY);
+  const result = await refreshTrending(env, token, { olderThan: now - 20 * 60 * 60 * 1000, limit: 200, now });
+  if (result.failed.length) console.warn("Trending refresh: some repositories failed", JSON.stringify(result.failed.slice(0, 5)));
 }

@@ -72,6 +72,13 @@ plan ($5/month) covers 10 million requests.
 - **Close new registrations** blocks accounts that do not exist yet and hides sign-up buttons site-wide. Existing users and admins can still sign in.
 - **Users** shows each account, when it joined, its last call and its totals.
 - **API calls** lists every call by a signed-in user (REST, MCP, dashboard, sign-ins, key changes) with what was searched, how it was understood and what was returned. Only two background checks are left out: `GET /api/me` and `GET /api/usage`. Calls without a valid account cannot be attributed and are not stored. API keys, tokens and IP addresses are never logged. Deleting an account deletes its log.
+- **Trending library** holds hand-picked repositories grouped by use case (for example "Web scraping" with the
+  keywords `scraper, crawler, web scraping`). When a search contains the use case name or one of its keywords
+  (whole words, plurals included, AI synonyms counted), those repositories come first in REST, MCP and dashboard
+  results, marked `trending: true` with their `useCase`. Up to 10 are pinned per search; a Language filter and
+  archived status still apply. A snapshot of each repository is stored (`src/trending.js`), so pinning costs no
+  GitHub calls; the daily cron refreshes it on the admin's GitHub token, and the console's **Refresh stars**
+  button does it on demand.
 
 ## Deploy
 
@@ -82,7 +89,7 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-Migrations add `key_usage` and the admin, log, AI and daily-limit tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
+Migrations add `key_usage` and the admin, log, AI, daily-limit and trending-library tables. If you forget them, the Worker creates the tables itself on first use (and logs a warning), so tracking still works. If Cloudflare rejects the `[[ratelimits]]` block on your plan,
 delete it from `wrangler.toml`; the Worker falls back to its in-memory limiter.
 
 First deploy from scratch: `npx wrangler login`, `npx wrangler d1 create starscout` (put the id in `wrangler.toml`),
